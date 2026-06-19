@@ -23,6 +23,9 @@ public class UserAccount
     public DateTime? LastBribeUtc { get; set; }
     public DateTime? LastHeistUtc { get; set; }
     public DateTime? LastBurgerUtc { get; set; }
+    public DateTime? LastPizzaUtc { get; set; }
+    public DateTime? LastCoffeeUtc { get; set; }
+    public DateTime? LastEnergyDrinkUtc { get; set; }
 
     public DateTime? ShieldEndTimeUtc { get; set; }
 

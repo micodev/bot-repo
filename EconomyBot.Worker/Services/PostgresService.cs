@@ -34,10 +34,58 @@ public class PostgresService
         }
 
         await using var command = dataSource.CreateCommand(@"
-            CREATE TABLE IF NOT EXISTS UserAccounts (
+            CREATE TABLE IF NOT EXISTS Users (
                 UserId BIGINT PRIMARY KEY,
-                Data JSONB NOT NULL,
-                LastUpdated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                AccessHash BIGINT NOT NULL DEFAULT 0,
+                FirstName TEXT,
+                LastName TEXT,
+                Username TEXT,
+                CreatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                LastSeen TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS CardTypes (
+                Id SERIAL PRIMARY KEY,
+                Name VARCHAR(255) NOT NULL UNIQUE
+            );
+
+            CREATE TABLE IF NOT EXISTS Accounts (
+                AccountId BIGSERIAL PRIMARY KEY,
+                UserId BIGINT NOT NULL UNIQUE,
+                Balance BIGINT NOT NULL DEFAULT 500,
+                AccountNumber TEXT NOT NULL UNIQUE,
+                Thief BIGINT NOT NULL DEFAULT 0,
+                CardTypeId INT NOT NULL DEFAULT 1,
+                JobLevel INT NOT NULL DEFAULT 1,
+                Gender VARCHAR(50),
+                LastSalaryClaimUtc TIMESTAMP WITH TIME ZONE,
+                LastTreasureHuntUtc TIMESTAMP WITH TIME ZONE,
+                LastWheelSpinUtc TIMESTAMP WITH TIME ZONE,
+                LastInvestUtc TIMESTAMP WITH TIME ZONE,
+                LastCoinFlipUtc TIMESTAMP WITH TIME ZONE,
+                LastStealUtc TIMESTAMP WITH TIME ZONE,
+                LastRaidUtc TIMESTAMP WITH TIME ZONE,
+                LastBribeUtc TIMESTAMP WITH TIME ZONE,
+                ShieldEndTimeUtc TIMESTAMP WITH TIME ZONE,
+                LastBurgerUtc TIMESTAMP WITH TIME ZONE,
+                LastRentUpdateUtc TIMESTAMP WITH TIME ZONE,
+                UnclaimedRent BIGINT NOT NULL DEFAULT 0,
+                LastWealthTaxUtc TIMESTAMP WITH TIME ZONE,
+                Energy INT NOT NULL DEFAULT 20,
+                LastEnergyRegenUtc TIMESTAMP WITH TIME ZONE,
+                LuckBoostEndTimeUtc TIMESTAMP WITH TIME ZONE,
+                DoubleSellCharges INT NOT NULL DEFAULT 0,
+                SoloRaidPasses INT NOT NULL DEFAULT 0,
+                LastPizzaUtc TIMESTAMP WITH TIME ZONE,
+                LastCoffeeUtc TIMESTAMP WITH TIME ZONE,
+                LastEnergyDrinkUtc TIMESTAMP WITH TIME ZONE,
+                LastHeistUtc TIMESTAMP WITH TIME ZONE,
+                SlotTempBalance BIGINT NOT NULL DEFAULT 0,
+                EnergyCrashPendingPenalty INT NOT NULL DEFAULT 0,
+                EnergyCrashPenalty INT NOT NULL DEFAULT 0,
+                EnergyCrashEndTimeUtc TIMESTAMP WITH TIME ZONE,
+                FOREIGN KEY(UserId) REFERENCES Users(UserId),
+                FOREIGN KEY(CardTypeId) REFERENCES CardTypes(Id)
             );
 
             CREATE TABLE IF NOT EXISTS Treasures (
@@ -57,6 +105,23 @@ public class PostgresService
                 Category VARCHAR(50)
             );
 
+            CREATE TABLE IF NOT EXISTS AccountItems (
+                Id BIGSERIAL PRIMARY KEY,
+                AccountId BIGINT NOT NULL,
+                ItemId BIGINT NOT NULL,
+                PurchasePrice BIGINT NOT NULL,
+                PurchaseDate TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(AccountId) REFERENCES Accounts(AccountId) ON DELETE CASCADE,
+                FOREIGN KEY(ItemId) REFERENCES Items(Id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS MarketPrices (
+                Category VARCHAR(50) PRIMARY KEY,
+                Multiplier REAL NOT NULL DEFAULT 1.0,
+                Trend VARCHAR(50) NOT NULL DEFAULT 'Stable',
+                LastUpdated TIMESTAMP WITH TIME ZONE NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS Jobs (
                 Level INT PRIMARY KEY,
                 Title VARCHAR(255) NOT NULL,
@@ -65,6 +130,8 @@ public class PostgresService
             );
         ");
         await command.ExecuteNonQueryAsync();
+
+        await MigrationScript.RunMigrationAsync(dataSource);
 
         await using var checkSchemaCmd = dataSource.CreateCommand("SELECT data_type FROM information_schema.columns WHERE table_name = 'tiers' AND column_name = 'malenames';");
         var hasNewSchema = await checkSchemaCmd.ExecuteScalarAsync() != null;
@@ -255,16 +322,76 @@ public class PostgresService
     public async Task<List<EconomyBot.Worker.Models.UserAccount>> GetAllAccountsAsync()
     {
         await using var dataSource = NpgsqlDataSource.Create(ConnectionString);
-        await using var command = dataSource.CreateCommand("SELECT Data FROM UserAccounts");
+        
+        var accounts = new Dictionary<long, EconomyBot.Worker.Models.UserAccount>();
+        
+        await using var command = dataSource.CreateCommand("SELECT AccountId, UserId, Balance, AccountNumber, Thief, CardTypeId, JobLevel, Gender, LastSalaryClaimUtc, LastTreasureHuntUtc, LastWheelSpinUtc, LastInvestUtc, LastCoinFlipUtc, LastStealUtc, LastRaidUtc, LastBribeUtc, ShieldEndTimeUtc, LastBurgerUtc, LastRentUpdateUtc, UnclaimedRent, LastWealthTaxUtc, Energy, LastEnergyRegenUtc, LuckBoostEndTimeUtc, DoubleSellCharges, SoloRaidPasses, LastPizzaUtc, LastCoffeeUtc, LastEnergyDrinkUtc, LastHeistUtc, SlotTempBalance, EnergyCrashPendingPenalty, EnergyCrashPenalty, EnergyCrashEndTimeUtc FROM Accounts");
         using var reader = await command.ExecuteReaderAsync();
-        var list = new List<EconomyBot.Worker.Models.UserAccount>();
         while (await reader.ReadAsync())
         {
-            var json = reader.GetString(0);
-            var acc = System.Text.Json.JsonSerializer.Deserialize<EconomyBot.Worker.Models.UserAccount>(json);
-            if (acc != null) list.Add(acc);
+            var acc = new EconomyBot.Worker.Models.UserAccount
+            {
+                AccountId = reader.GetInt64(0),
+                UserId = reader.GetInt64(1),
+                Balance = reader.GetInt64(2),
+                AccountNumber = reader.GetString(3),
+                Thief = reader.GetInt64(4),
+                CardTypeId = reader.GetInt32(5),
+                JobLevel = reader.GetInt32(6),
+                Gender = reader.IsDBNull(7) ? null : reader.GetString(7),
+                LastSalaryClaimUtc = reader.IsDBNull(8) ? null : DateTime.SpecifyKind(reader.GetDateTime(8), DateTimeKind.Utc),
+                LastTreasureHuntUtc = reader.IsDBNull(9) ? null : DateTime.SpecifyKind(reader.GetDateTime(9), DateTimeKind.Utc),
+                LastWheelSpinUtc = reader.IsDBNull(10) ? null : DateTime.SpecifyKind(reader.GetDateTime(10), DateTimeKind.Utc),
+                LastInvestUtc = reader.IsDBNull(11) ? null : DateTime.SpecifyKind(reader.GetDateTime(11), DateTimeKind.Utc),
+                LastCoinFlipUtc = reader.IsDBNull(12) ? null : DateTime.SpecifyKind(reader.GetDateTime(12), DateTimeKind.Utc),
+                LastStealUtc = reader.IsDBNull(13) ? null : DateTime.SpecifyKind(reader.GetDateTime(13), DateTimeKind.Utc),
+                LastRaidUtc = reader.IsDBNull(14) ? null : DateTime.SpecifyKind(reader.GetDateTime(14), DateTimeKind.Utc),
+                LastBribeUtc = reader.IsDBNull(15) ? null : DateTime.SpecifyKind(reader.GetDateTime(15), DateTimeKind.Utc),
+                ShieldEndTimeUtc = reader.IsDBNull(16) ? null : DateTime.SpecifyKind(reader.GetDateTime(16), DateTimeKind.Utc),
+                LastBurgerUtc = reader.IsDBNull(17) ? null : DateTime.SpecifyKind(reader.GetDateTime(17), DateTimeKind.Utc),
+                LastRentUpdateUtc = reader.IsDBNull(18) ? null : DateTime.SpecifyKind(reader.GetDateTime(18), DateTimeKind.Utc),
+                UnclaimedRent = reader.GetInt64(19),
+                LastWealthTaxUtc = reader.IsDBNull(20) ? null : DateTime.SpecifyKind(reader.GetDateTime(20), DateTimeKind.Utc),
+                Energy = reader.GetInt32(21),
+                LastEnergyRegenUtc = reader.IsDBNull(22) ? null : DateTime.SpecifyKind(reader.GetDateTime(22), DateTimeKind.Utc),
+                LuckBoostEndTimeUtc = reader.IsDBNull(23) ? null : DateTime.SpecifyKind(reader.GetDateTime(23), DateTimeKind.Utc),
+                DoubleSellCharges = reader.GetInt32(24),
+                SoloRaidPasses = reader.GetInt32(25),
+                LastPizzaUtc = reader.IsDBNull(26) ? null : DateTime.SpecifyKind(reader.GetDateTime(26), DateTimeKind.Utc),
+                LastCoffeeUtc = reader.IsDBNull(27) ? null : DateTime.SpecifyKind(reader.GetDateTime(27), DateTimeKind.Utc),
+                LastEnergyDrinkUtc = reader.IsDBNull(28) ? null : DateTime.SpecifyKind(reader.GetDateTime(28), DateTimeKind.Utc),
+                LastHeistUtc = reader.IsDBNull(29) ? null : DateTime.SpecifyKind(reader.GetDateTime(29), DateTimeKind.Utc),
+                SlotTempBalance = reader.GetInt64(30),
+                EnergyCrashPendingPenalty = reader.GetInt32(31),
+                EnergyCrashPenalty = reader.GetInt32(32),
+                EnergyCrashEndTimeUtc = reader.IsDBNull(33) ? null : DateTime.SpecifyKind(reader.GetDateTime(33), DateTimeKind.Utc),
+                Inventory = new List<EconomyBot.Worker.Models.AccountItem>()
+            };
+            accounts[acc.AccountId] = acc;
         }
-        return list;
+        await reader.CloseAsync();
+
+        await using var itemsCmd = dataSource.CreateCommand("SELECT Id, AccountId, ItemId, PurchasePrice, PurchaseDate FROM AccountItems");
+        using var itemsReader = await itemsCmd.ExecuteReaderAsync();
+        while (await itemsReader.ReadAsync())
+        {
+            var id = itemsReader.GetInt64(0);
+            var accountId = itemsReader.GetInt64(1);
+            if (accounts.TryGetValue(accountId, out var acc))
+            {
+                acc.Inventory.Add(new EconomyBot.Worker.Models.AccountItem
+                {
+                    Id = id,
+                    AccountId = accountId,
+                    ItemId = itemsReader.GetInt64(2),
+                    PurchasePrice = itemsReader.GetInt64(3),
+                    PurchaseDate = DateTime.SpecifyKind(itemsReader.GetDateTime(4), DateTimeKind.Utc)
+                });
+            }
+        }
+        await itemsReader.CloseAsync();
+
+        return accounts.Values.ToList();
     }
 
     public async Task<List<(int Level, string[] MaleNames, string[] FemaleNames, float MinPercentile)>> GetTiersAsync()
@@ -288,15 +415,112 @@ public class PostgresService
     public async Task UpsertAccountAsync(EconomyBot.Worker.Models.UserAccount acc)
     {
         await using var dataSource = NpgsqlDataSource.Create(ConnectionString);
-        await using var command = dataSource.CreateCommand(@"
-            INSERT INTO UserAccounts (UserId, Data, LastUpdated)
-            VALUES (@UserId, @Data::jsonb, CURRENT_TIMESTAMP)
-            ON CONFLICT (UserId) 
-            DO UPDATE SET Data = EXCLUDED.Data, LastUpdated = CURRENT_TIMESTAMP;
-        ");
-        command.Parameters.AddWithValue("UserId", acc.UserId);
-        command.Parameters.AddWithValue("Data", System.Text.Json.JsonSerializer.Serialize(acc));
-        await command.ExecuteNonQueryAsync();
+        await using var connection = await dataSource.OpenConnectionAsync();
+        await using var tx = await connection.BeginTransactionAsync();
+
+        await using var userCmd = new NpgsqlCommand(@"
+            INSERT INTO Users (UserId) VALUES (@UserId) ON CONFLICT (UserId) DO NOTHING;
+        ", connection, tx);
+        userCmd.Parameters.AddWithValue("UserId", acc.UserId);
+        await userCmd.ExecuteNonQueryAsync();
+
+        await using var accCmd = new NpgsqlCommand(@"
+            INSERT INTO Accounts (UserId, Balance, AccountNumber, Thief, CardTypeId, JobLevel, Gender, LastSalaryClaimUtc, LastTreasureHuntUtc, LastWheelSpinUtc, LastInvestUtc, LastCoinFlipUtc, LastStealUtc, LastRaidUtc, LastBribeUtc, ShieldEndTimeUtc, LastBurgerUtc, LastRentUpdateUtc, UnclaimedRent, LastWealthTaxUtc, Energy, LastEnergyRegenUtc, LuckBoostEndTimeUtc, DoubleSellCharges, SoloRaidPasses, LastPizzaUtc, LastCoffeeUtc, LastEnergyDrinkUtc, LastHeistUtc, SlotTempBalance, EnergyCrashPendingPenalty, EnergyCrashPenalty, EnergyCrashEndTimeUtc)
+            VALUES (@UserId, @Balance, @AccountNumber, @Thief, @CardTypeId, @JobLevel, @Gender, @LastSalaryClaimUtc, @LastTreasureHuntUtc, @LastWheelSpinUtc, @LastInvestUtc, @LastCoinFlipUtc, @LastStealUtc, @LastRaidUtc, @LastBribeUtc, @ShieldEndTimeUtc, @LastBurgerUtc, @LastRentUpdateUtc, @UnclaimedRent, @LastWealthTaxUtc, @Energy, @LastEnergyRegenUtc, @LuckBoostEndTimeUtc, @DoubleSellCharges, @SoloRaidPasses, @LastPizzaUtc, @LastCoffeeUtc, @LastEnergyDrinkUtc, @LastHeistUtc, @SlotTempBalance, @EnergyCrashPendingPenalty, @EnergyCrashPenalty, @EnergyCrashEndTimeUtc)
+            ON CONFLICT (UserId) DO UPDATE SET
+                Balance = EXCLUDED.Balance,
+                AccountNumber = EXCLUDED.AccountNumber,
+                Thief = EXCLUDED.Thief,
+                CardTypeId = EXCLUDED.CardTypeId,
+                JobLevel = EXCLUDED.JobLevel,
+                Gender = EXCLUDED.Gender,
+                LastSalaryClaimUtc = EXCLUDED.LastSalaryClaimUtc,
+                LastTreasureHuntUtc = EXCLUDED.LastTreasureHuntUtc,
+                LastWheelSpinUtc = EXCLUDED.LastWheelSpinUtc,
+                LastInvestUtc = EXCLUDED.LastInvestUtc,
+                LastCoinFlipUtc = EXCLUDED.LastCoinFlipUtc,
+                LastStealUtc = EXCLUDED.LastStealUtc,
+                LastRaidUtc = EXCLUDED.LastRaidUtc,
+                LastBribeUtc = EXCLUDED.LastBribeUtc,
+                ShieldEndTimeUtc = EXCLUDED.ShieldEndTimeUtc,
+                LastBurgerUtc = EXCLUDED.LastBurgerUtc,
+                LastRentUpdateUtc = EXCLUDED.LastRentUpdateUtc,
+                UnclaimedRent = EXCLUDED.UnclaimedRent,
+                LastWealthTaxUtc = EXCLUDED.LastWealthTaxUtc,
+                Energy = EXCLUDED.Energy,
+                LastEnergyRegenUtc = EXCLUDED.LastEnergyRegenUtc,
+                LuckBoostEndTimeUtc = EXCLUDED.LuckBoostEndTimeUtc,
+                DoubleSellCharges = EXCLUDED.DoubleSellCharges,
+                SoloRaidPasses = EXCLUDED.SoloRaidPasses,
+                LastPizzaUtc = EXCLUDED.LastPizzaUtc,
+                LastCoffeeUtc = EXCLUDED.LastCoffeeUtc,
+                LastEnergyDrinkUtc = EXCLUDED.LastEnergyDrinkUtc,
+                LastHeistUtc = EXCLUDED.LastHeistUtc,
+                SlotTempBalance = EXCLUDED.SlotTempBalance,
+                EnergyCrashPendingPenalty = EXCLUDED.EnergyCrashPendingPenalty,
+                EnergyCrashPenalty = EXCLUDED.EnergyCrashPenalty,
+                EnergyCrashEndTimeUtc = EXCLUDED.EnergyCrashEndTimeUtc
+            RETURNING AccountId;
+        ", connection, tx);
+        
+        accCmd.Parameters.AddWithValue("UserId", acc.UserId);
+        accCmd.Parameters.AddWithValue("Balance", acc.Balance);
+        accCmd.Parameters.AddWithValue("AccountNumber", acc.AccountNumber ?? EconomyBot.Worker.Models.UserAccount.GenerateAccountNumber());
+        accCmd.Parameters.AddWithValue("Thief", acc.Thief);
+        accCmd.Parameters.AddWithValue("CardTypeId", acc.CardTypeId == 0 ? 1 : acc.CardTypeId);
+        accCmd.Parameters.AddWithValue("JobLevel", acc.JobLevel == 0 ? 1 : acc.JobLevel);
+        accCmd.Parameters.AddWithValue("Gender", (object?)acc.Gender ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LastSalaryClaimUtc", (object?)acc.LastSalaryClaimUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LastTreasureHuntUtc", (object?)acc.LastTreasureHuntUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LastWheelSpinUtc", (object?)acc.LastWheelSpinUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LastInvestUtc", (object?)acc.LastInvestUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LastCoinFlipUtc", (object?)acc.LastCoinFlipUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LastStealUtc", (object?)acc.LastStealUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LastRaidUtc", (object?)acc.LastRaidUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LastBribeUtc", (object?)acc.LastBribeUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("ShieldEndTimeUtc", (object?)acc.ShieldEndTimeUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LastBurgerUtc", (object?)acc.LastBurgerUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LastRentUpdateUtc", (object?)acc.LastRentUpdateUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("UnclaimedRent", acc.UnclaimedRent);
+        accCmd.Parameters.AddWithValue("LastWealthTaxUtc", (object?)acc.LastWealthTaxUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("Energy", acc.Energy);
+        accCmd.Parameters.AddWithValue("LastEnergyRegenUtc", (object?)acc.LastEnergyRegenUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LuckBoostEndTimeUtc", (object?)acc.LuckBoostEndTimeUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("DoubleSellCharges", acc.DoubleSellCharges);
+        accCmd.Parameters.AddWithValue("SoloRaidPasses", acc.SoloRaidPasses);
+        accCmd.Parameters.AddWithValue("LastPizzaUtc", (object?)acc.LastPizzaUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LastCoffeeUtc", (object?)acc.LastCoffeeUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LastEnergyDrinkUtc", (object?)acc.LastEnergyDrinkUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("LastHeistUtc", (object?)acc.LastHeistUtc ?? DBNull.Value);
+        accCmd.Parameters.AddWithValue("SlotTempBalance", acc.SlotTempBalance);
+        accCmd.Parameters.AddWithValue("EnergyCrashPendingPenalty", acc.EnergyCrashPendingPenalty);
+        accCmd.Parameters.AddWithValue("EnergyCrashPenalty", acc.EnergyCrashPenalty);
+        accCmd.Parameters.AddWithValue("EnergyCrashEndTimeUtc", (object?)acc.EnergyCrashEndTimeUtc ?? DBNull.Value);
+
+        var accountId = (long)(await accCmd.ExecuteScalarAsync() ?? 0L);
+        acc.AccountId = accountId;
+
+        await using var delItemsCmd = new NpgsqlCommand("DELETE FROM AccountItems WHERE AccountId = @AccountId", connection, tx);
+        delItemsCmd.Parameters.AddWithValue("AccountId", accountId);
+        await delItemsCmd.ExecuteNonQueryAsync();
+
+        if (acc.Inventory != null && acc.Inventory.Any())
+        {
+            foreach (var item in acc.Inventory)
+            {
+                await using var invCmd = new NpgsqlCommand(@"
+                    INSERT INTO AccountItems (AccountId, ItemId, PurchasePrice, PurchaseDate)
+                    VALUES (@AccountId, @ItemId, @PurchasePrice, @PurchaseDate);
+                ", connection, tx);
+                invCmd.Parameters.AddWithValue("AccountId", accountId);
+                invCmd.Parameters.AddWithValue("ItemId", item.ItemId);
+                invCmd.Parameters.AddWithValue("PurchasePrice", item.PurchasePrice);
+                invCmd.Parameters.AddWithValue("PurchaseDate", item.PurchaseDate);
+                await invCmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        await tx.CommitAsync();
     }
 
     private async Task SeedJobsAsync(NpgsqlDataSource dataSource)
