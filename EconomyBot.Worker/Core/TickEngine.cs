@@ -9,6 +9,7 @@ public class TickEngine(
     ILogger<TickEngine> logger, 
     CommandQueue commandQueue,
     RedisService redisService,
+    PostgresService postgresService,
     JobService jobService,
     MarketService marketService,
     RentService rentService,
@@ -150,6 +151,7 @@ public class TickEngine(
         if (stateMutated)
         {
             await redisService.SaveAccountAsync(account);
+            await postgresService.UpsertAccountAsync(account);
         }
     }
 }
