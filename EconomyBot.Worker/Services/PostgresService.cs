@@ -97,6 +97,27 @@ public class PostgresService
                 EnergyRestore INT NOT NULL DEFAULT 0
             );
 
+            CREATE TABLE IF NOT EXISTS Tiers (
+                TierId SERIAL PRIMARY KEY,
+                Name VARCHAR(100) NOT NULL,
+                MinBalance BIGINT NOT NULL,
+                RewardDescription TEXT,
+                RoleColor VARCHAR(50)
+            );
+        ");
+        await command.ExecuteNonQueryAsync();
+
+        // Migration: Rename UnclaimedRent to RentGeneratorFilled if it exists
+        await using var checkColCmd = dataSource.CreateCommand("SELECT column_name FROM information_schema.columns WHERE table_name='accounts' AND column_name='unclaimedrent'");
+        var colExists = await checkColCmd.ExecuteScalarAsync();
+        if (colExists != null)
+        {
+            await using var renameCmd = dataSource.CreateCommand("ALTER TABLE Accounts RENAME COLUMN UnclaimedRent TO RentGeneratorFilled");
+            await renameCmd.ExecuteNonQueryAsync();
+            logger.LogInformation("Migrated column UnclaimedRent to RentGeneratorFilled.");
+        }
+
+        await using var command2 = dataSource.CreateCommand(@"
             CREATE TABLE IF NOT EXISTS Items (
                 Id BIGSERIAL PRIMARY KEY,
                 ItemName VARCHAR(255) NOT NULL,
