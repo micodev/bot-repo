@@ -109,8 +109,8 @@ public class ShieldsFeature(RedisService redisService, MarketService marketServi
         {
             if (parts.Length > 1 && long.TryParse(parts[1], out var ownerId) && ownerId != cmd.UserId)
             {
-                await Reply(cmd, "❌ This menu is not for you!");
-                return true;
+                await AnswerCallback(cmd, "❌ This menu is not for you!");
+                return false;
             }
             return await HandleShieldMarketAsync(cmd, account);
         }
@@ -123,8 +123,8 @@ public class ShieldsFeature(RedisService redisService, MarketService marketServi
 
         if (long.TryParse(parts[1], out var callbackOwnerId) && callbackOwnerId != cmd.UserId)
         {
-            await Reply(cmd, "❌ This menu is not for you!");
-            return true;
+            await AnswerCallback(cmd, "❌ This menu is not for you!");
+            return false;
         }
 
         if (index < 0 || index >= ShieldTiers.Length)

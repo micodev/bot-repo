@@ -149,6 +149,19 @@ public class TelegramListenerService(
 
                 if (notif.Peer is InputPeer peer)
                 {
+                    // If this is a pure callback answer (e.g. error toast) with no message body to edit/send
+                    if (notif.CallbackQueryId.HasValue && string.IsNullOrEmpty(notif.Message) && !string.IsNullOrEmpty(notif.CallbackAnswer))
+                    {
+                        await _client!.Messages_SetBotCallbackAnswer(notif.CallbackQueryId.Value, cache_time: 0, message: notif.CallbackAnswer, alert: notif.ShowAlert);
+                        continue;
+                    }
+
+                    // Acknowledge the callback if it hasn't been explicitly answered
+                    if (notif.CallbackQueryId.HasValue)
+                    {
+                        await _client!.Messages_SetBotCallbackAnswer(notif.CallbackQueryId.Value, cache_time: 0, message: notif.CallbackAnswer ?? "", alert: notif.ShowAlert);
+                    }
+
                     // Reply to the original message — Telegram automatically keeps it
                     // in the correct topic/thread (no need to manually set topic ID).
                     InputReplyTo? replyTo = null;
@@ -517,17 +530,15 @@ public class TelegramListenerService(
                 CommandType = cmdName,
                 Args = args,
                 UserName = userName,
-                IsCallback = true
+                IsCallback = true,
+                CallbackQueryId = cbq.query_id
             };
 
             await commandQueue.EnqueueAsync(ecoCmd);
             var argsString = ecoCmd.Args != null && ecoCmd.Args.Length > 0 ? string.Join(":", ecoCmd.Args) : "none";
             Console.WriteLine($"\x1b[1;35m[Callback]\x1b[0m \x1b[1;32m{ecoCmd.CommandType}\x1b[0m from \x1b[1;33m{userName}\x1b[0m ({cbq.user_id}) Data: {argsString}");
             
-            // Acknowledge the callback so Telegram stops spinning
-            await _client!.Messages_SetBotCallbackAnswer(
-                query_id: cbq.query_id,
-                cache_time: 0);
+            // Note: Callback is now answered asynchronously in ProcessOutgoingNotificationsAsync
         }
         catch (Exception ex)
         {

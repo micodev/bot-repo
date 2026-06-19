@@ -122,15 +122,15 @@ public class BoostsFeature(RedisService redisService, MarketService marketServic
     {
         if (parts.Length < 3)
         {
-            await Reply(cmd, "❌ Invalid boost callback.");
+            await AnswerCallback(cmd, "❌ Invalid boost callback.");
             return true;
         }
 
         var type = parts[1];
-        if (long.TryParse(parts[2], out var menuOwnerId) && menuOwnerId != cmd.UserId)
+        if (long.TryParse(parts[2], out var uId) && uId != cmd.UserId)
         {
-            await Reply(cmd, "❌ This menu is not for you!");
-            return true;
+            await AnswerCallback(cmd, "❌ This menu is not for you!");
+            return false;
         }
 
         if (parts[0] == "eco_recharge_buy") return await HandleRechargeBuyCallbackAsync(cmd, account, parts);

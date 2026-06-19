@@ -16,9 +16,23 @@ public abstract class FeatureBase(NotificationQueue notificationQueue)
             Message = message,
             Markup = markup,
             EditMessage = cmd.IsCallback,
+            CallbackQueryId = cmd.IsCallback ? cmd.CallbackQueryId : null,
             Mentions = mentions,
             Entities = entities,
             OnMessageSent = onMessageSent
+        });
+    }
+
+    protected async Task AnswerCallback(EconomyCommand cmd, string answer, bool showAlert = true)
+    {
+        if (!cmd.IsCallback || cmd.CallbackQueryId == 0) return;
+
+        await notificationQueue.EnqueueAsync(new OutgoingNotification
+        {
+            CallbackQueryId = cmd.CallbackQueryId,
+            CallbackAnswer = answer,
+            ShowAlert = showAlert,
+            // the notification processing code will just answer the callback and not send a message
         });
     }
 

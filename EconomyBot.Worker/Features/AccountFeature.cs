@@ -26,7 +26,7 @@ public class AccountFeature(JobService jobService, TierService tierService, IOpt
             if (long.TryParse(cmd.Args[0], out var uId) && uId != cmd.UserId)
             {
                 // Disallow clicking someone else's dashboard tabs
-                await Reply(cmd, "❌ This menu is not for you!");
+                await AnswerCallback(cmd, "❌ This menu is not for you!");
                 return false;
             }
             section = cmd.Args[1];

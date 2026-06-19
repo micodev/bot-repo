@@ -14,6 +14,9 @@ public class OutgoingNotification
     public (string label, TL.InputMessageEntityMentionName? entity)[]? Mentions { get; set; }
     public bool EditMessage { get; set; }
     public Action<int>? OnMessageSent { get; set; }
+    public long? CallbackQueryId { get; set; }
+    public string? CallbackAnswer { get; set; }
+    public bool ShowAlert { get; set; }
 }
 
 public class NotificationQueue

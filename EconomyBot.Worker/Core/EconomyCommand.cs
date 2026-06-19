@@ -13,4 +13,5 @@ public class EconomyCommand
     public string UserName { get; set; } = "Unknown User";
     public string TargetUserName { get; set; } = "Unknown User";
     public bool IsCallback { get; set; }
+    public long CallbackQueryId { get; set; }
 }

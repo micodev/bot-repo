@@ -156,7 +156,7 @@ public class HeistFeature(
 
         if (triggererId != cmd.UserId)
         {
-            await Reply(cmd, "❌ This menu is not for you!", dashMarkup);
+            await AnswerCallback(cmd, "❌ This menu is not for you!");
             return false;
         }
 
