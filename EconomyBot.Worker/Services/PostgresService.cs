@@ -114,7 +114,7 @@ public class PostgresService
         {
             await using var renameCmd = dataSource.CreateCommand("ALTER TABLE Accounts RENAME COLUMN UnclaimedRent TO RentGeneratorFilled");
             await renameCmd.ExecuteNonQueryAsync();
-            logger.LogInformation("Migrated column UnclaimedRent to RentGeneratorFilled.");
+            Console.WriteLine("Migrated column UnclaimedRent to RentGeneratorFilled.");
         }
 
         await using var command2 = dataSource.CreateCommand(@"

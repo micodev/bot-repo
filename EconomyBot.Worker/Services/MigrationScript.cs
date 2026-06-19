@@ -89,7 +89,7 @@ public static class MigrationScript
             long accountId = 0;
             try {
                 accountId = (long)(await accCmd.ExecuteScalarAsync() ?? 0L);
-            } catch (Exception ex) {
+            } catch (Exception) {
                 Console.WriteLine($"Skipping duplicate user {acc.UserId}");
                 continue; // Skip duplicates or errors
             }
