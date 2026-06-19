@@ -48,8 +48,8 @@ public static class MigrationScript
             await userCmd.ExecuteNonQueryAsync();
 
             await using var accCmd = new NpgsqlCommand(@"
-                INSERT INTO Accounts (UserId, Balance, AccountNumber, Thief, CardTypeId, JobLevel, Gender, LastSalaryClaimUtc, LastTreasureHuntUtc, LastWheelSpinUtc, LastInvestUtc, LastCoinFlipUtc, LastStealUtc, LastRaidUtc, LastBribeUtc, ShieldEndTimeUtc, LastBurgerUtc, LastRentUpdateUtc, UnclaimedRent, LastWealthTaxUtc, Energy, LastEnergyRegenUtc, LuckBoostEndTimeUtc, DoubleSellCharges, SoloRaidPasses, LastPizzaUtc, LastCoffeeUtc, LastEnergyDrinkUtc, LastHeistUtc, SlotTempBalance, EnergyCrashPendingPenalty, EnergyCrashPenalty, EnergyCrashEndTimeUtc)
-                VALUES (@UserId, @Balance, @AccountNumber, @Thief, @CardTypeId, @JobLevel, @Gender, @LastSalaryClaimUtc, @LastTreasureHuntUtc, @LastWheelSpinUtc, @LastInvestUtc, @LastCoinFlipUtc, @LastStealUtc, @LastRaidUtc, @LastBribeUtc, @ShieldEndTimeUtc, @LastBurgerUtc, @LastRentUpdateUtc, @UnclaimedRent, @LastWealthTaxUtc, @Energy, @LastEnergyRegenUtc, @LuckBoostEndTimeUtc, @DoubleSellCharges, @SoloRaidPasses, @LastPizzaUtc, @LastCoffeeUtc, @LastEnergyDrinkUtc, @LastHeistUtc, @SlotTempBalance, @EnergyCrashPendingPenalty, @EnergyCrashPenalty, @EnergyCrashEndTimeUtc)
+                INSERT INTO Accounts (UserId, Balance, AccountNumber, Thief, CardTypeId, JobLevel, Gender, LastSalaryClaimUtc, LastTreasureHuntUtc, LastWheelSpinUtc, LastInvestUtc, LastCoinFlipUtc, LastStealUtc, LastRaidUtc, LastBribeUtc, ShieldEndTimeUtc, LastBurgerUtc, LastRentUpdateUtc, RentGeneratorFilled, LastWealthTaxUtc, Energy, LastEnergyRegenUtc, LuckBoostEndTimeUtc, DoubleSellCharges, SoloRaidPasses, LastPizzaUtc, LastCoffeeUtc, LastEnergyDrinkUtc, LastHeistUtc, SlotTempBalance, EnergyCrashPendingPenalty, EnergyCrashPenalty, EnergyCrashEndTimeUtc)
+                VALUES (@UserId, @Balance, @AccountNumber, @Thief, @CardTypeId, @JobLevel, @Gender, @LastSalaryClaimUtc, @LastTreasureHuntUtc, @LastWheelSpinUtc, @LastInvestUtc, @LastCoinFlipUtc, @LastStealUtc, @LastRaidUtc, @LastBribeUtc, @ShieldEndTimeUtc, @LastBurgerUtc, @LastRentUpdateUtc, @RentGeneratorFilled, @LastWealthTaxUtc, @Energy, @LastEnergyRegenUtc, @LuckBoostEndTimeUtc, @DoubleSellCharges, @SoloRaidPasses, @LastPizzaUtc, @LastCoffeeUtc, @LastEnergyDrinkUtc, @LastHeistUtc, @SlotTempBalance, @EnergyCrashPendingPenalty, @EnergyCrashPenalty, @EnergyCrashEndTimeUtc)
                 RETURNING AccountId;
             ", connection, tx);
             accCmd.Parameters.AddWithValue("UserId", acc.UserId);
@@ -70,7 +70,7 @@ public static class MigrationScript
             accCmd.Parameters.AddWithValue("ShieldEndTimeUtc", (object?)acc.ShieldEndTimeUtc ?? DBNull.Value);
             accCmd.Parameters.AddWithValue("LastBurgerUtc", (object?)acc.LastBurgerUtc ?? DBNull.Value);
             accCmd.Parameters.AddWithValue("LastRentUpdateUtc", (object?)acc.LastRentUpdateUtc ?? DBNull.Value);
-            accCmd.Parameters.AddWithValue("UnclaimedRent", acc.UnclaimedRent);
+            accCmd.Parameters.AddWithValue("RentGeneratorFilled", acc.RentGeneratorFilled);
             accCmd.Parameters.AddWithValue("LastWealthTaxUtc", (object?)acc.LastWealthTaxUtc ?? DBNull.Value);
             accCmd.Parameters.AddWithValue("Energy", acc.Energy);
             accCmd.Parameters.AddWithValue("LastEnergyRegenUtc", (object?)acc.LastEnergyRegenUtc ?? DBNull.Value);

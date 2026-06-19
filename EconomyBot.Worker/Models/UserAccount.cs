@@ -30,7 +30,7 @@ public class UserAccount
     public DateTime? ShieldEndTimeUtc { get; set; }
 
     // Passive Rent
-    public long UnclaimedRent { get; set; } = 0;
+    public long RentGeneratorFilled { get; set; } = 0;
     public DateTime? LastRentUpdateUtc { get; set; }
     public DateTime? LastWealthTaxUtc { get; set; }
 

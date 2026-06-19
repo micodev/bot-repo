@@ -69,7 +69,7 @@ public class PostgresService
                 ShieldEndTimeUtc TIMESTAMP WITH TIME ZONE,
                 LastBurgerUtc TIMESTAMP WITH TIME ZONE,
                 LastRentUpdateUtc TIMESTAMP WITH TIME ZONE,
-                UnclaimedRent BIGINT NOT NULL DEFAULT 0,
+                RentGeneratorFilled BIGINT NOT NULL DEFAULT 0,
                 LastWealthTaxUtc TIMESTAMP WITH TIME ZONE,
                 Energy INT NOT NULL DEFAULT 20,
                 LastEnergyRegenUtc TIMESTAMP WITH TIME ZONE,
@@ -333,7 +333,7 @@ public class PostgresService
         
         var accounts = new Dictionary<long, EconomyBot.Worker.Models.UserAccount>();
         
-        await using var command = dataSource.CreateCommand("SELECT AccountId, UserId, Balance, AccountNumber, Thief, CardTypeId, JobLevel, Gender, LastSalaryClaimUtc, LastTreasureHuntUtc, LastWheelSpinUtc, LastInvestUtc, LastCoinFlipUtc, LastStealUtc, LastRaidUtc, LastBribeUtc, ShieldEndTimeUtc, LastBurgerUtc, LastRentUpdateUtc, UnclaimedRent, LastWealthTaxUtc, Energy, LastEnergyRegenUtc, LuckBoostEndTimeUtc, DoubleSellCharges, SoloRaidPasses, LastPizzaUtc, LastCoffeeUtc, LastEnergyDrinkUtc, LastHeistUtc, SlotTempBalance, EnergyCrashPendingPenalty, EnergyCrashPenalty, EnergyCrashEndTimeUtc FROM Accounts");
+        await using var command = dataSource.CreateCommand("SELECT AccountId, UserId, Balance, AccountNumber, Thief, CardTypeId, JobLevel, Gender, LastSalaryClaimUtc, LastTreasureHuntUtc, LastWheelSpinUtc, LastInvestUtc, LastCoinFlipUtc, LastStealUtc, LastRaidUtc, LastBribeUtc, ShieldEndTimeUtc, LastBurgerUtc, LastRentUpdateUtc, RentGeneratorFilled, LastWealthTaxUtc, Energy, LastEnergyRegenUtc, LuckBoostEndTimeUtc, DoubleSellCharges, SoloRaidPasses, LastPizzaUtc, LastCoffeeUtc, LastEnergyDrinkUtc, LastHeistUtc, SlotTempBalance, EnergyCrashPendingPenalty, EnergyCrashPenalty, EnergyCrashEndTimeUtc FROM Accounts");
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
@@ -358,7 +358,7 @@ public class PostgresService
                 ShieldEndTimeUtc = reader.IsDBNull(16) ? null : DateTime.SpecifyKind(reader.GetDateTime(16), DateTimeKind.Utc),
                 LastBurgerUtc = reader.IsDBNull(17) ? null : DateTime.SpecifyKind(reader.GetDateTime(17), DateTimeKind.Utc),
                 LastRentUpdateUtc = reader.IsDBNull(18) ? null : DateTime.SpecifyKind(reader.GetDateTime(18), DateTimeKind.Utc),
-                UnclaimedRent = reader.GetInt64(19),
+                RentGeneratorFilled = reader.GetInt64(19),
                 LastWealthTaxUtc = reader.IsDBNull(20) ? null : DateTime.SpecifyKind(reader.GetDateTime(20), DateTimeKind.Utc),
                 Energy = reader.GetInt32(21),
                 LastEnergyRegenUtc = reader.IsDBNull(22) ? null : DateTime.SpecifyKind(reader.GetDateTime(22), DateTimeKind.Utc),
@@ -433,8 +433,8 @@ public class PostgresService
         await userCmd.ExecuteNonQueryAsync();
 
         await using var accCmd = new NpgsqlCommand(@"
-            INSERT INTO Accounts (UserId, Balance, AccountNumber, Thief, CardTypeId, JobLevel, Gender, LastSalaryClaimUtc, LastTreasureHuntUtc, LastWheelSpinUtc, LastInvestUtc, LastCoinFlipUtc, LastStealUtc, LastRaidUtc, LastBribeUtc, ShieldEndTimeUtc, LastBurgerUtc, LastRentUpdateUtc, UnclaimedRent, LastWealthTaxUtc, Energy, LastEnergyRegenUtc, LuckBoostEndTimeUtc, DoubleSellCharges, SoloRaidPasses, LastPizzaUtc, LastCoffeeUtc, LastEnergyDrinkUtc, LastHeistUtc, SlotTempBalance, EnergyCrashPendingPenalty, EnergyCrashPenalty, EnergyCrashEndTimeUtc)
-            VALUES (@UserId, @Balance, @AccountNumber, @Thief, @CardTypeId, @JobLevel, @Gender, @LastSalaryClaimUtc, @LastTreasureHuntUtc, @LastWheelSpinUtc, @LastInvestUtc, @LastCoinFlipUtc, @LastStealUtc, @LastRaidUtc, @LastBribeUtc, @ShieldEndTimeUtc, @LastBurgerUtc, @LastRentUpdateUtc, @UnclaimedRent, @LastWealthTaxUtc, @Energy, @LastEnergyRegenUtc, @LuckBoostEndTimeUtc, @DoubleSellCharges, @SoloRaidPasses, @LastPizzaUtc, @LastCoffeeUtc, @LastEnergyDrinkUtc, @LastHeistUtc, @SlotTempBalance, @EnergyCrashPendingPenalty, @EnergyCrashPenalty, @EnergyCrashEndTimeUtc)
+            INSERT INTO Accounts (UserId, Balance, AccountNumber, Thief, CardTypeId, JobLevel, Gender, LastSalaryClaimUtc, LastTreasureHuntUtc, LastWheelSpinUtc, LastInvestUtc, LastCoinFlipUtc, LastStealUtc, LastRaidUtc, LastBribeUtc, ShieldEndTimeUtc, LastBurgerUtc, LastRentUpdateUtc, RentGeneratorFilled, LastWealthTaxUtc, Energy, LastEnergyRegenUtc, LuckBoostEndTimeUtc, DoubleSellCharges, SoloRaidPasses, LastPizzaUtc, LastCoffeeUtc, LastEnergyDrinkUtc, LastHeistUtc, SlotTempBalance, EnergyCrashPendingPenalty, EnergyCrashPenalty, EnergyCrashEndTimeUtc)
+            VALUES (@UserId, @Balance, @AccountNumber, @Thief, @CardTypeId, @JobLevel, @Gender, @LastSalaryClaimUtc, @LastTreasureHuntUtc, @LastWheelSpinUtc, @LastInvestUtc, @LastCoinFlipUtc, @LastStealUtc, @LastRaidUtc, @LastBribeUtc, @ShieldEndTimeUtc, @LastBurgerUtc, @LastRentUpdateUtc, @RentGeneratorFilled, @LastWealthTaxUtc, @Energy, @LastEnergyRegenUtc, @LuckBoostEndTimeUtc, @DoubleSellCharges, @SoloRaidPasses, @LastPizzaUtc, @LastCoffeeUtc, @LastEnergyDrinkUtc, @LastHeistUtc, @SlotTempBalance, @EnergyCrashPendingPenalty, @EnergyCrashPenalty, @EnergyCrashEndTimeUtc)
             ON CONFLICT (UserId) DO UPDATE SET
                 Balance = EXCLUDED.Balance,
                 AccountNumber = EXCLUDED.AccountNumber,
@@ -453,7 +453,7 @@ public class PostgresService
                 ShieldEndTimeUtc = EXCLUDED.ShieldEndTimeUtc,
                 LastBurgerUtc = EXCLUDED.LastBurgerUtc,
                 LastRentUpdateUtc = EXCLUDED.LastRentUpdateUtc,
-                UnclaimedRent = EXCLUDED.UnclaimedRent,
+                RentGeneratorFilled = EXCLUDED.RentGeneratorFilled,
                 LastWealthTaxUtc = EXCLUDED.LastWealthTaxUtc,
                 Energy = EXCLUDED.Energy,
                 LastEnergyRegenUtc = EXCLUDED.LastEnergyRegenUtc,
@@ -489,7 +489,7 @@ public class PostgresService
         accCmd.Parameters.AddWithValue("ShieldEndTimeUtc", (object?)acc.ShieldEndTimeUtc ?? DBNull.Value);
         accCmd.Parameters.AddWithValue("LastBurgerUtc", (object?)acc.LastBurgerUtc ?? DBNull.Value);
         accCmd.Parameters.AddWithValue("LastRentUpdateUtc", (object?)acc.LastRentUpdateUtc ?? DBNull.Value);
-        accCmd.Parameters.AddWithValue("UnclaimedRent", acc.UnclaimedRent);
+        accCmd.Parameters.AddWithValue("RentGeneratorFilled", acc.RentGeneratorFilled);
         accCmd.Parameters.AddWithValue("LastWealthTaxUtc", (object?)acc.LastWealthTaxUtc ?? DBNull.Value);
         accCmd.Parameters.AddWithValue("Energy", acc.Energy);
         accCmd.Parameters.AddWithValue("LastEnergyRegenUtc", (object?)acc.LastEnergyRegenUtc ?? DBNull.Value);

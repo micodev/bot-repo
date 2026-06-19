@@ -12,7 +12,7 @@ public class RentService(
 
     /// <summary>
     /// Calculates how much rent was generated since the last check,
-    /// and adds it directly to Balance (if < 1M) or to UnclaimedRent (if >= 1M).
+    /// and adds it directly to Balance, updating RentGeneratorFilled if >= 1M.
     /// </summary>
     public async Task UpdatePendingRentAsync(UserAccount account)
     {
@@ -58,11 +58,12 @@ public class RentService(
 
             if (remainingRent > 0)
             {
-                long allowedToVault = maxVaultLimit - account.UnclaimedRent;
+                long allowedToVault = maxVaultLimit - account.RentGeneratorFilled;
                 if (allowedToVault > 0)
                 {
                     long toAdd = Math.Min(remainingRent, allowedToVault);
-                    account.UnclaimedRent += toAdd;
+                    account.Balance += toAdd;
+                    account.RentGeneratorFilled += toAdd;
                 }
             }
 
@@ -76,12 +77,12 @@ public class RentService(
     }
 
     /// <summary>
-    /// Claims the UnclaimedRent and adds it to Balance.
+    /// Resets the generator limit and deducts any applicable property tax.
     /// </summary>
-    public (long ClaimedAmount, long TaxDeducted) ClaimRent(UserAccount account)
+    public (long ResetAmount, long TaxDeducted) ResetGenerator(UserAccount account)
     {
-        long claimedAmount = account.UnclaimedRent;
-        if (claimedAmount <= 0)
+        long filledAmount = account.RentGeneratorFilled;
+        if (filledAmount <= 0)
         {
             return (0, 0);
         }
@@ -91,12 +92,12 @@ public class RentService(
         long totalBaseValue = account.Inventory.Sum(i => i.Item?.Price ?? 0);
         if (totalBaseValue > 10_000_000)
         {
-            taxDeducted = (long)(claimedAmount * 0.02);
+            taxDeducted = (long)(filledAmount * 0.02);
+            account.Balance -= taxDeducted;
         }
 
-        account.Balance += (claimedAmount - taxDeducted);
-        account.UnclaimedRent = 0;
+        account.RentGeneratorFilled = 0;
 
-        return (claimedAmount, taxDeducted);
+        return (filledAmount, taxDeducted);
     }
 }

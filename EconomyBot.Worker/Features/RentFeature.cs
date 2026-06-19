@@ -19,23 +19,23 @@ public class RentFeature(RentService rentService, NotificationQueue notification
 
         if (cmd.CommandType == "eco_rent_claim")
         {
-            var (claimed, tax) = rentService.ClaimRent(account);
-            if (claimed > 0)
+            var (resetAmount, tax) = rentService.ResetGenerator(account);
+            if (resetAmount > 0)
             {
                 var sb = new StringBuilder();
-                sb.AppendLine($"✅ Successfully refreshed your generator! **${FormatNumber(claimed)}** was passively added to your balance.");
+                sb.AppendLine($"✅ Successfully reset your generator! It can now produce another **$1,000,000**.");
                 if (tax > 0)
                 {
-                    sb.AppendLine($"💸 You paid **${FormatNumber(tax)}** in property taxes upon refresh.");
+                    sb.AppendLine($"💸 You paid **${FormatNumber(tax)}** in property taxes upon reset.");
                 }
-                sb.AppendLine($"\nNew Balance: **${FormatNumber(account.Balance)}**");
+                sb.AppendLine($"\nCurrent Balance: **${FormatNumber(account.Balance)}**");
 
                 await Reply(cmd, sb.ToString());
                 return true; // mutated
             }
             else
             {
-                await Reply(cmd, "⚠️ You have no rent to claim right now!");
+                await Reply(cmd, "⚠️ Your generator is already at $0.");
                 return true; // well, we did update rent timestamp at least
             }
         }
@@ -44,24 +44,48 @@ public class RentFeature(RentService rentService, NotificationQueue notification
         var sbInfo = new StringBuilder();
         sbInfo.AppendLine("🏢 **PASSIVE INCOME GENERATOR**\n");
 
+        bool hasAssets = account.Inventory != null && account.Inventory.Count > 0;
+
         if (account.Balance < 1_000_000)
         {
-            sbInfo.AppendLine("✨ **Unlimited Generation!**");
-            sbInfo.AppendLine("Since your balance is under **$1M**, your rent is automatically claimed without any limits.\n");
-            sbInfo.AppendLine("Your passive income flows directly into your balance! No need to refresh.");
-            sbInfo.AppendLine($"\nCurrent Balance: **${FormatNumber(account.Balance)}**");
+            if (!hasAssets)
+            {
+                sbInfo.AppendLine("Your vault is currently empty.\n");
+                sbInfo.AppendLine("Buy assets in the `/ecomarket` to start earning passive income!");
+            }
+            else
+            {
+                sbInfo.AppendLine("✨ **Unlimited Generation!**");
+                sbInfo.AppendLine("Since your balance is under **$1M**, your rent is automatically claimed without any limits.\n");
+                sbInfo.AppendLine("Your passive income flows directly into your balance! No need to refresh.");
+                sbInfo.AppendLine($"\nCurrent Balance: **${FormatNumber(account.Balance)}**");
+            }
             await Reply(cmd, sbInfo.ToString());
         }
         else
         {
-            if (account.UnclaimedRent > 0)
+            if (account.RentGeneratorFilled > 0)
             {
-                sbInfo.AppendLine($"Your assets have passively generated: **${FormatNumber(account.UnclaimedRent)}** / **$1M** limit");
-                if (account.UnclaimedRent >= 1_000_000)
+                if (!hasAssets)
                 {
-                    sbInfo.AppendLine("⚠️ **Your generator is FULL! Refresh now to earn more.**");
+                    sbInfo.AppendLine($"You have a filled generator from previous assets: **${FormatNumber(account.RentGeneratorFilled)}** / **$1M** limit");
                 }
-                sbInfo.AppendLine("\nRent is automatically added to your balance. Click the button below to refresh your generator's limit.");
+                else
+                {
+                    sbInfo.AppendLine($"Your generator is currently filled: **${FormatNumber(account.RentGeneratorFilled)}** / **$1M** limit");
+                }
+                
+                if (account.RentGeneratorFilled >= 1_000_000)
+                {
+                    sbInfo.AppendLine("⚠️ **Your generator is FULL! Reset now to keep earning.**");
+                }
+                
+                if (!hasAssets)
+                {
+                    sbInfo.AppendLine("\nBuy assets in the `/ecomarket` to start earning passive income again!");
+                }
+                
+                sbInfo.AppendLine("\nYour passive income automatically flows into your balance. Click the button below to reset your generator limit to $0 so it can keep producing.");
                 
                 var markup = new ReplyInlineMarkup
                 {
@@ -73,7 +97,7 @@ public class RentFeature(RentService rentService, NotificationQueue notification
                             {
                                 new KeyboardButtonCallback
                                 {
-                                    text = $"🔄 Refresh Generator (${FormatNumber(account.UnclaimedRent)})",
+                                    text = $"🔄 Reset Generator (${FormatNumber(account.RentGeneratorFilled)} filled)",
                                     data = Encoding.UTF8.GetBytes($"eco_rent_claim:{account.UserId}")
                                 }
                             }
@@ -84,7 +108,6 @@ public class RentFeature(RentService rentService, NotificationQueue notification
             }
             else
             {
-                bool hasAssets = account.Inventory.Count > 0; // simplistic check
                 sbInfo.AppendLine("Your vault is currently empty.\n");
                 if (hasAssets)
                 {
