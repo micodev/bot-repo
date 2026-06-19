@@ -75,7 +75,7 @@ public class AccountFeature(JobService jobService, TierService tierService, IOpt
         {
             sb.AppendLine("── 📊 Stats & Status ──");
             sb.AppendLine($"🔓 Thief Score: {account.Thief}");
-            
+
             if (account.ShieldEndTimeUtc.HasValue && account.ShieldEndTimeUtc.Value > DateTime.UtcNow)
             {
                 var remaining = account.ShieldEndTimeUtc.Value - DateTime.UtcNow;
@@ -107,8 +107,8 @@ public class AccountFeature(JobService jobService, TierService tierService, IOpt
 
         var actionButtons = new List<KeyboardButtonBase>
         {
-            new KeyboardButtonCallback { text = isSalaryReady ? "💰 Salary (Ready)" : "⏳ Salary", data = Encoding.UTF8.GetBytes("ecosalary") },
-            new KeyboardButtonCallback { text = isTreasureReady ? "🗺️ Treasure (Ready)" : "⏳ Treasure", data = Encoding.UTF8.GetBytes("ecotreasure") }
+            new KeyboardButtonCallback { text = isSalaryReady ? "💰 Salary" : "⏳ Salary", data = Encoding.UTF8.GetBytes("ecosalary") },
+            new KeyboardButtonCallback { text = isTreasureReady ? "🗺️ Treasure" : "⏳ Treasure", data = Encoding.UTF8.GetBytes("ecotreasure") }
         };
         rows.Add(new KeyboardButtonRow { buttons = actionButtons.ToArray() });
 
@@ -136,10 +136,10 @@ public class AccountFeature(JobService jobService, TierService tierService, IOpt
     private string FormatCooldownStatus(DateTime? lastUsedUtc, double cooldownHours)
     {
         if (lastUsedUtc == null) return "✅ Ready!";
-        
+
         var remaining = TimeSpan.FromHours(cooldownHours) - (DateTime.UtcNow - lastUsedUtc.Value);
         if (remaining.TotalSeconds <= 0) return "✅ Ready!";
-        
+
         return $"⏳ {FormatTimeSpan(remaining)}";
     }
 }
