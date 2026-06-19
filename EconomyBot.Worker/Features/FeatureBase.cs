@@ -17,6 +17,7 @@ public abstract class FeatureBase(NotificationQueue notificationQueue)
             Markup = markup,
             EditMessage = cmd.IsCallback,
             CallbackQueryId = cmd.IsCallback ? cmd.CallbackQueryId : null,
+            TriggererUserId = cmd.UserId,
             Mentions = mentions,
             Entities = entities,
             OnMessageSent = onMessageSent

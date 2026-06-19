@@ -17,6 +17,7 @@ public class OutgoingNotification
     public long? CallbackQueryId { get; set; }
     public string? CallbackAnswer { get; set; }
     public bool ShowAlert { get; set; }
+    public long? TriggererUserId { get; set; }
 }
 
 public class NotificationQueue

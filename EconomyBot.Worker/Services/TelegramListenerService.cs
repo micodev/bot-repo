@@ -193,6 +193,11 @@ public class TelegramListenerService(
 
                     if (notif.EditMessage && notif.ReplyToMsgId > 0)
                     {
+                        if (notif.TriggererUserId.HasValue)
+                        {
+                            await redisService.SetStringAsync($"msg_owner:{peer.ID}:{notif.ReplyToMsgId}", notif.TriggererUserId.Value.ToString(), TimeSpan.FromDays(2));
+                        }
+
                         await _client!.Messages_EditMessage(
                             peer: peer,
                             id: notif.ReplyToMsgId,
@@ -210,13 +215,18 @@ public class TelegramListenerService(
                             reply_markup: notif.Markup,
                             random_id: WTelegram.Helpers.RandomLong());
                             
-                        if (notif.OnMessageSent != null && updates is TL.Updates upds)
+                        if (updates is TL.Updates upds)
                         {
                             foreach (var u in upds.updates)
                             {
                                 if (u is TL.UpdateMessageID umid)
                                 {
-                                    notif.OnMessageSent(umid.id);
+                                    if (notif.TriggererUserId.HasValue)
+                                    {
+                                        await redisService.SetStringAsync($"msg_owner:{peer.ID}:{umid.id}", notif.TriggererUserId.Value.ToString(), TimeSpan.FromDays(2));
+                                    }
+
+                                    notif.OnMessageSent?.Invoke(umid.id);
                                     break;
                                 }
                             }
@@ -509,6 +519,24 @@ public class TelegramListenerService(
             var dataString = System.Text.Encoding.UTF8.GetString(cbq.data);
             var parts = dataString.Split(':');
             var cmdName = parts[0];
+
+            // Only specific prefixes are public
+            var publicPrefixes = new[] { "eco_join_raid", "eco_dare_accept", "eco_dare_box", "eco_help", "eco_cancel_raid", "eco_dare_lobby_start", "eco_dare_lobby_cancel" };
+            bool isPublic = publicPrefixes.Any(p => cmdName.StartsWith(p));
+
+            if (!isPublic)
+            {
+                var ownerStr = await redisService.GetStringAsync($"msg_owner:{cbq.peer.ID}:{cbq.msg_id}");
+                if (!string.IsNullOrEmpty(ownerStr) && long.TryParse(ownerStr, out var ownerId))
+                {
+                    if (cbq.user_id != ownerId)
+                    {
+                        await _client!.Messages_SetBotCallbackAnswer(cbq.query_id, cache_time: 0, message: "❌ This menu is not for you!", alert: true);
+                        return;
+                    }
+                }
+            }
+
             var args = parts.Skip(1).ToArray();
 
             string userName = "Unknown User";

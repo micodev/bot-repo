@@ -129,6 +129,20 @@ public class RedisService
         return null;
     }
 
+    public async Task SetStringAsync(string key, string value, TimeSpan? expiry = null)
+    {
+        if (expiry.HasValue)
+            await _db.StringSetAsync(key, value, expiry.Value);
+        else
+            await _db.StringSetAsync(key, value);
+    }
+
+    public async Task<string?> GetStringAsync(string key)
+    {
+        var val = await _db.StringGetAsync(key);
+        return val.HasValue ? val.ToString() : null;
+    }
+
     // ── Market ──────────────────────────────────────────────────────────────
 
     public async Task<Dictionary<string, MarketCategoryState>> GetMarketPricesAsync()
