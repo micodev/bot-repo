@@ -3,10 +3,27 @@ using System.Collections.Concurrent;
 
 namespace EconomyBot.Worker.Services;
 
-public class TierService(PostgresService postgresService, MarketService marketService)
+public class TierService(PostgresService postgresService, MarketService marketService, RedisService redisService)
 {
     public async Task<(int Level, string TierName)> GetPlayerTierAsync(long userId, string? gender)
     {
+        var db = redisService.GetDatabase();
+        var cachedStr = await db.HashGetAsync("eco:player_stats", userId.ToString());
+        if (!cachedStr.IsNullOrEmpty)
+        {
+            try
+            {
+                var doc = System.Text.Json.JsonDocument.Parse(cachedStr.ToString());
+                int level = doc.RootElement.GetProperty("Tier").GetInt32();
+                string tierName = doc.RootElement.GetProperty("TierName").GetString() ?? "Unknown";
+                return (level, tierName);
+            }
+            catch
+            {
+                // Ignore parse errors and fallback
+            }
+        }
+
         var tiers = await postgresService.GetTiersAsync();
         
         if (userId == 622676944)
@@ -63,9 +80,6 @@ public class TierService(PostgresService postgresService, MarketService marketSe
 
         double percentile = (strictLess + 0.5 * equal) / total;
 
-        // Find the matching tier
-        // MinPercentile is the threshold, so we want the highest tier (lowest level) where percentile >= MinPercentile
-        // Level 0 is already handled for admin.
         foreach (var t in tiers.Where(t => t.Level > 0).OrderBy(t => t.Level))
         {
             if (percentile >= t.MinPercentile)
@@ -160,5 +174,80 @@ public class TierService(PostgresService postgresService, MarketService marketSe
         int hash = $"{userId}_{tier.Level}".GetHashCode();
         int index = Math.Abs(hash) % names.Length;
         return names[index];
+    }
+
+    public async Task UpdateGlobalLeaderboardAsync(RedisService redisService)
+    {
+        var tiers = await postgresService.GetTiersAsync();
+        var allAccounts = await postgresService.GetAllAccountsAsync();
+        var (marketPrices, _) = await marketService.GetMarketPricesAsync();
+
+        var netWorths = new List<(long UserId, long NetWorth, string? Gender)>();
+
+        foreach (var acc in allAccounts)
+        {
+            if (acc.UserId == 622676944) continue; // Admin
+
+            long netWorth = acc.Balance;
+            foreach (var invItem in acc.Inventory)
+            {
+                if (invItem.Item != null && !string.IsNullOrEmpty(invItem.Item.Category))
+                {
+                    marketPrices.TryGetValue(invItem.Item.Category, out var state);
+                    if (state == null) state = new MarketCategoryState();
+                    long currentVal = marketService.GetMarketPrice(invItem.Item, state);
+                    netWorth += currentVal;
+                }
+            }
+            netWorths.Add((acc.UserId, netWorth, acc.Gender));
+        }
+
+        // Sort to determine ranks
+        var sorted = netWorths.OrderByDescending(n => n.NetWorth).ToList();
+        long total = sorted.Count;
+
+        var db = redisService.GetDatabase();
+        var hashEntries = new List<StackExchange.Redis.HashEntry>();
+
+        // Calculate for admin
+        var adminAcc = allAccounts.FirstOrDefault(a => a.UserId == 622676944);
+        if (adminAcc != null)
+        {
+            var adminTier = tiers.FirstOrDefault(t => t.Level == 0);
+            string adminTitle = GetName(adminTier, adminAcc.Gender, adminAcc.UserId);
+            var stats = new { Rank = 0, Tier = 0, TierName = adminTitle, NetWorth = 999999999999 };
+            hashEntries.Add(new StackExchange.Redis.HashEntry(adminAcc.UserId.ToString(), System.Text.Json.JsonSerializer.Serialize(stats)));
+        }
+
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            var nw = sorted[i];
+            int rank = i + 1; // 1-indexed
+
+            long strictLess = total - rank; // because sorted descending
+            long equal = sorted.Count(n => n.NetWorth == nw.NetWorth);
+            double percentile = total > 0 ? (strictLess + 0.5 * equal) / total : 0;
+
+            int assignedLevel = 10;
+            foreach (var t in tiers.Where(t => t.Level > 0).OrderBy(t => t.Level))
+            {
+                if (percentile >= t.MinPercentile)
+                {
+                    assignedLevel = t.Level;
+                    break;
+                }
+            }
+            
+            var assignedTier = tiers.First(t => t.Level == assignedLevel);
+            string title = GetName(assignedTier, nw.Gender, nw.UserId);
+
+            var stats = new { Rank = rank, Tier = assignedLevel, TierName = title, NetWorth = nw.NetWorth };
+            hashEntries.Add(new StackExchange.Redis.HashEntry(nw.UserId.ToString(), System.Text.Json.JsonSerializer.Serialize(stats)));
+        }
+
+        if (hashEntries.Count > 0)
+        {
+            await db.HashSetAsync("eco:player_stats", hashEntries.ToArray());
+        }
     }
 }

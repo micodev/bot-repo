@@ -10,6 +10,7 @@ public class DbSyncService(
     ILogger<DbSyncService> logger,
     RedisService redisService,
     PostgresService postgresService,
+    TierService tierService,
     IOptions<EconomyOptions> economyOptions) : BackgroundService
 {
     private readonly EconomyOptions _opts = economyOptions.Value;
@@ -29,10 +30,13 @@ public class DbSyncService(
                     logger.LogInformation($"Syncing {dirtyUserIds.Count} accounts to Postgres...");
                     await SyncAccountsToPostgresAsync(dirtyUserIds);
                 }
+
+                logger.LogInformation("Updating Global Leaderboard and Tiers...");
+                await tierService.UpdateGlobalLeaderboardAsync(redisService);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error occurred during DB sync.");
+                logger.LogError(ex, "Error occurred during DB sync or Leaderboard update.");
             }
 
             await Task.Delay(TimeSpan.FromSeconds(_opts.DbSyncIntervalSeconds), stoppingToken);

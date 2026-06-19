@@ -65,6 +65,9 @@ try {
     await pgService.InitializeSchemaAsync(); 
     var items = await pgService.GetItemsAsync();
     await redisService.CacheItemsAsync(items);
+    
+    var jobService = host.Services.GetRequiredService<JobService>();
+    await jobService.InitializeAsync(pgService);
 } catch (Exception ex) { Console.WriteLine($"DB Init failed: {ex.Message}"); }
 
 host.Run();

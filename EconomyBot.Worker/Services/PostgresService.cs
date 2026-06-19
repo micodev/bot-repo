@@ -56,6 +56,13 @@ public class PostgresService
                 Rarity VARCHAR(50),
                 Category VARCHAR(50)
             );
+
+            CREATE TABLE IF NOT EXISTS Jobs (
+                Level INT PRIMARY KEY,
+                Title VARCHAR(255) NOT NULL,
+                Salary BIGINT NOT NULL,
+                UpgradeCost BIGINT NOT NULL
+            );
         ");
         await command.ExecuteNonQueryAsync();
 
@@ -80,6 +87,7 @@ public class PostgresService
         await SeedTreasuresAsync(dataSource);
         await SeedItemsAsync(dataSource);
         await SeedTiersAsync(dataSource);
+        await SeedJobsAsync(dataSource);
     }
 
     private async Task SeedItemsAsync(NpgsqlDataSource dataSource)
@@ -289,5 +297,52 @@ public class PostgresService
         command.Parameters.AddWithValue("UserId", acc.UserId);
         command.Parameters.AddWithValue("Data", System.Text.Json.JsonSerializer.Serialize(acc));
         await command.ExecuteNonQueryAsync();
+    }
+
+    private async Task SeedJobsAsync(NpgsqlDataSource dataSource)
+    {
+        await using var checkCmd = dataSource.CreateCommand("SELECT COUNT(*) FROM Jobs;");
+        var count = (long)(await checkCmd.ExecuteScalarAsync() ?? 0L);
+        if (count > 0) return;
+
+        var seedQuery = @"
+            INSERT INTO Jobs (Level, Title, Salary, UpgradeCost) VALUES
+            (1, 'Street Vendor 🛒', 500, 0),
+            (2, 'Cashier 🏪', 1000, 3000),
+            (3, 'Security Guard 👮', 1800, 8000),
+            (4, 'Electrician ⚡', 2500, 15000),
+            (5, 'Mechanic 🔧', 3500, 30000),
+            (6, 'Nurse 🏥', 5000, 45000),
+            (7, 'Accountant 📊', 7000, 60000),
+            (8, 'Teacher 📚', 9000, 80000),
+            (9, 'Software Engineer 💻', 12000, 100000),
+            (10, 'Architect 🏗️', 15000, 130000),
+            (11, 'Doctor 🩺', 18000, 170000),
+            (12, 'Lawyer ⚖️', 22000, 220000),
+            (13, 'Airline Pilot ✈️', 27000, 280000),
+            (14, 'Corporate Director 👔', 35000, 350000),
+            (15, 'CEO 👑', 50000, 500000);
+        ";
+        await using var seedCmd = dataSource.CreateCommand(seedQuery);
+        await seedCmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task<List<EconomyBot.Worker.Models.JobDefinition>> GetJobsAsync()
+    {
+        await using var dataSource = NpgsqlDataSource.Create(ConnectionString);
+        await using var command = dataSource.CreateCommand("SELECT Level, Title, Salary, UpgradeCost FROM Jobs ORDER BY Level ASC");
+        using var reader = await command.ExecuteReaderAsync();
+        var list = new List<EconomyBot.Worker.Models.JobDefinition>();
+        while (await reader.ReadAsync())
+        {
+            list.Add(new EconomyBot.Worker.Models.JobDefinition
+            {
+                Level = reader.GetInt32(0),
+                Title = reader.GetString(1),
+                Salary = reader.GetInt64(2),
+                UpgradeCost = reader.GetInt64(3)
+            });
+        }
+        return list;
     }
 }
