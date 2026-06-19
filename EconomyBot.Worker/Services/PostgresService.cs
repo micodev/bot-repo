@@ -155,6 +155,14 @@ public class PostgresService
         await SeedItemsAsync(dataSource);
         await SeedTiersAsync(dataSource);
         await SeedJobsAsync(dataSource);
+        await SeedCardTypesAsync(dataSource);
+    }
+
+    private async Task SeedCardTypesAsync(NpgsqlDataSource dataSource)
+    {
+        var seedQuery = "INSERT INTO CardTypes (Id, Name) VALUES (1, 'Visa') ON CONFLICT (Id) DO NOTHING;";
+        await using var seedCmd = dataSource.CreateCommand(seedQuery);
+        await seedCmd.ExecuteNonQueryAsync();
     }
 
     private async Task SeedItemsAsync(NpgsqlDataSource dataSource)
