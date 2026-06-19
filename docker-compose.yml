@@ -1,0 +1,40 @@
+services:
+  bot:
+    build: .
+    container_name: economy_bot
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      - Redis__ConnectionString=redis:6379
+      - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=economy_db;Username=bot_user;Password=bot_pass
+    volumes:
+      - bot_data:/app/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: economy_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: economy_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bot_user
+      POSTGRES_PASSWORD: bot_pass
+      POSTGRES_DB: economy_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  redis_data:
+  postgres_data:
+  bot_data:
