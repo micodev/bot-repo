@@ -9,11 +9,12 @@ using TL;
 
 namespace EconomyBot.Worker.Features;
 
-public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> economyOptions, NotificationQueue notificationQueue, TierService tierService, RicoAiService ricoAiService) : FeatureBase(notificationQueue), ICommandFeature
+public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> economyOptions, NotificationQueue notificationQueue, TierService tierService, RicoAiService ricoAiService, CommandQueue commandQueue) : FeatureBase(notificationQueue), ICommandFeature
 {
     private readonly EconomyOptions _opts = economyOptions.Value;
     private readonly NotificationQueue _notificationQueue = notificationQueue;
     private readonly RicoAiService _ricoAi = ricoAiService;
+    private readonly CommandQueue _commandQueue = commandQueue;
 
     public string CommandName => "Raid";
     public string Description => "Coordinate an attack on a target player to steal coins. Usage: /ecoraid @username or /ecobandit @username";
@@ -293,7 +294,17 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
             _ = Task.Run(async () =>
             {
                 await Task.Delay(TimeSpan.FromMinutes(1));
-                await HandleLobbyTimeoutAsync(cmd, targetAccount.UserId, targetName, db);
+                var timeoutCmd = new EconomyCommand
+                {
+                    CommandType = "eco_raid_timeout",
+                    IsCallback = true,
+                    UserId = account.UserId,
+                    ChatId = cmd.ChatId,
+                    Peer = cmd.Peer,
+                    TopicId = cmd.TopicId,
+                    Args = new[] { targetAccount.UserId.ToString(), targetName }
+                };
+                await _commandQueue.EnqueueAsync(timeoutCmd);
             });
         });
 
@@ -324,6 +335,11 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
         {
             return await HandleCancelRaidAsync(cmd, account, lobby, db);
         }
+        else if (action == "eco_raid_timeout")
+        {
+            await HandleLobbyTimeoutAsync(cmd, targetId, parts.Length > 2 ? string.Join(" ", parts.Skip(2)) : "Unknown User", db);
+            return true;
+        }
 
         return true;
     }
@@ -339,6 +355,14 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
         if (lobby.RaiderIds.Contains(account.UserId))
         {
             await Reply(cmd, "❌ You are already in this raid!");
+            return true;
+        }
+        
+        // Multi-Raid joining check safety reinforcement
+        var existingRaidStr = await db.StringGetAsync($"user_in_raid:{account.UserId}");
+        if (!existingRaidStr.IsNullOrEmpty && existingRaidStr.ToString() != lobby.TargetId.ToString())
+        {
+            await Reply(cmd, "❌ You are currently participating in a different active raid!");
             return true;
         }
 
@@ -480,6 +504,28 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
     {
         var targetAccount = await redisService.GetAccountAsync(lobby.TargetId);
         if (targetAccount == null) return true;
+
+        if (targetAccount.Balance <= 0)
+        {
+            var text = $"⚔️ **GROUP {(lobby.IsBandit ? "BANDIT" : "RAID")} FAILED!** ⚔️\n\n" +
+                       $"💀 The target is broke! They spent or moved their funds during the preparation phase.\n" +
+                       $"No funds were deducted or gained. The raid lobby has dissolved.";
+            
+            // Refund energy to raiders since the target cheated them
+            foreach (var rId in lobby.RaiderIds)
+            {
+                await db.KeyDeleteAsync($"user_in_raid:{rId}");
+                var rAccount = await redisService.GetAccountAsync(rId);
+                if (rAccount != null)
+                {
+                    rAccount.UpdateRegen(_opts);
+                    rAccount.Energy = Math.Min(_opts.MaxEnergy - rAccount.EnergyCrashPenalty, rAccount.Energy + _opts.EnergyCostRaid);
+                    await redisService.SaveAccountAsync(rAccount);
+                }
+            }
+            await Reply(cmd, text);
+            return true;
+        }
 
         var winChance = lobby.IsBandit ? _opts.BanditWinChance : _opts.RaidWinChance;
 

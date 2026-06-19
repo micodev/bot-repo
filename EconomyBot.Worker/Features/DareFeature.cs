@@ -9,11 +9,12 @@ using TL;
 
 namespace EconomyBot.Worker.Features;
 
-public class DareFeature(RedisService redisService, IOptions<EconomyOptions> economyOptions, NotificationQueue notificationQueue, RicoAiService ricoAiService) : FeatureBase(notificationQueue), ICommandFeature
+public class DareFeature(RedisService redisService, IOptions<EconomyOptions> economyOptions, NotificationQueue notificationQueue, RicoAiService ricoAiService, CommandQueue commandQueue) : FeatureBase(notificationQueue), ICommandFeature
 {
     private readonly EconomyOptions _opts = economyOptions.Value;
     private readonly NotificationQueue _notificationQueue = notificationQueue;
     private readonly RicoAiService _ricoAi = ricoAiService;
+    private readonly CommandQueue _commandQueue = commandQueue;
 
     public string CommandName => "Dare";
     public string Description => "Start a 1v1 Jackpot game. Usage: /ecodare <amount>";
@@ -112,35 +113,50 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
         _ = Task.Run(async () =>
         {
             await Task.Delay(TimeSpan.FromMinutes(1));
-            var lJson = await db.StringGetAsync($"dare_lobby:{dareId}");
-            if (lJson.IsNullOrEmpty) return;
-
-            var l = JsonSerializer.Deserialize<DareLobby>(lJson.ToString());
-            if (l != null && l.ChallengerId == null) // No one joined
+            var timeoutCmd = new EconomyCommand
             {
-                await db.KeyDeleteAsync($"dare_lobby:{dareId}");
-                await db.KeyDeleteAsync($"user_in_dare:{l.InitiatorId}");
-                
-                var initAccount = await redisService.GetAccountAsync(l.InitiatorId);
-                if (initAccount != null)
-                {
-                    initAccount.Balance += l.BetAmount;
-                    await redisService.SaveAccountAsync(initAccount);
-                }
-
-                var fallbackReply = $"🛑 The dare by {userName} for {FormatNumber(l.BetAmount)} expired! No one accepted. Money refunded.";
-                var notification = new OutgoingNotification
-                {
-                    ChatId = cmd.ChatId,
-                    TopicId = cmd.TopicId,
-                    Peer = cmd.Peer,
-                    Message = fallbackReply
-                };
-                await _notificationQueue.EnqueueAsync(notification);
-            }
+                CommandType = "eco_dare_lobby_timeout",
+                IsCallback = true,
+                UserId = account.UserId,
+                ChatId = cmd.ChatId,
+                Peer = cmd.Peer,
+                TopicId = cmd.TopicId,
+                Args = new[] { dareId, userName }
+            };
+            await _commandQueue.EnqueueAsync(timeoutCmd);
         });
 
         return true;
+    }
+
+    private async Task HandleLobbyTimeoutAsync(EconomyCommand cmd, string dareId, string userName, StackExchange.Redis.IDatabase db)
+    {
+        var lJson = await db.StringGetAsync($"dare_lobby:{dareId}");
+        if (lJson.IsNullOrEmpty) return;
+
+        var l = JsonSerializer.Deserialize<DareLobby>(lJson.ToString());
+        if (l != null && l.ChallengerId == null) // No one joined
+        {
+            await db.KeyDeleteAsync($"dare_lobby:{dareId}");
+            await db.KeyDeleteAsync($"user_in_dare:{l.InitiatorId}");
+            
+            var initAccount = await redisService.GetAccountAsync(l.InitiatorId);
+            if (initAccount != null)
+            {
+                initAccount.Balance += l.BetAmount;
+                await redisService.SaveAccountAsync(initAccount);
+            }
+
+            var fallbackReply = $"🛑 The dare by {userName} for {FormatNumber(l.BetAmount)} expired! No one accepted. Money refunded.";
+            var notification = new OutgoingNotification
+            {
+                ChatId = cmd.ChatId,
+                TopicId = cmd.TopicId,
+                Peer = cmd.Peer,
+                Message = fallbackReply
+            };
+            await _notificationQueue.EnqueueAsync(notification);
+        }
     }
 
     public async Task<bool> HandleCallbackAsync(EconomyCommand cmd, UserAccount account, string[] parts)
@@ -169,6 +185,18 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
             {
                 return await HandleBoxSelectionAsync(cmd, account, lobby, boxIndex, db);
             }
+        }
+        else if (action == "eco_dare_lobby_timeout")
+        {
+            await HandleLobbyTimeoutAsync(cmd, dareId, parts.Length > 2 ? parts[2] : "Unknown User", db);
+            return true;
+        }
+        else if (action == "eco_dare_game_timeout")
+        {
+            string initName = parts.Length > 2 ? parts[2] : "Player 1";
+            string chalName = parts.Length > 3 ? parts[3] : "Player 2";
+            await HandleDareTimeoutAsync(cmd, dareId, initName, chalName, db);
+            return true;
         }
 
         return true;
@@ -238,7 +266,17 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
         _ = Task.Run(async () =>
         {
             await Task.Delay(TimeSpan.FromMinutes(1));
-            await HandleDareTimeoutAsync(cmd, lobby.DareId, initiatorName, challengerName, db);
+            var timeoutCmd = new EconomyCommand
+            {
+                CommandType = "eco_dare_game_timeout",
+                IsCallback = true,
+                UserId = lobby.InitiatorId,
+                ChatId = cmd.ChatId,
+                Peer = cmd.Peer,
+                TopicId = cmd.TopicId,
+                Args = new[] { lobby.DareId, initiatorName, challengerName }
+            };
+            await _commandQueue.EnqueueAsync(timeoutCmd);
         });
 
         return true;
