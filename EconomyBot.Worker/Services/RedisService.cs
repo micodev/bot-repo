@@ -10,6 +10,12 @@ public class RedisService
     private readonly IConnectionMultiplexer _redis;
     private readonly IDatabase _db;
 
+    private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new EconomyBot.Worker.Core.FlexibleNullableDateTimeConverter() }
+    };
+
     public RedisService(IConfiguration configuration)
     {
         var connStr = configuration.GetValue<string>("Redis:ConnectionString") ?? "localhost:6379";
@@ -23,12 +29,12 @@ public class RedisService
     {
         var data = await _db.StringGetAsync($"eco:acc:{userId}");
         if (data.IsNullOrEmpty) return null;
-        return JsonSerializer.Deserialize<UserAccount>(data.ToString());
+        return JsonSerializer.Deserialize<UserAccount>(data.ToString(), _jsonOptions);
     }
 
     public async Task SaveAccountAsync(UserAccount account)
     {
-        var data = JsonSerializer.Serialize(account);
+        var data = JsonSerializer.Serialize(account, _jsonOptions);
         var tx = _db.CreateTransaction();
         _ = tx.StringSetAsync($"eco:acc:{account.UserId}", data);
         _ = tx.SetAddAsync("eco:dirty_accounts", account.UserId);
