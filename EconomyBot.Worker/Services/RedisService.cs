@@ -32,6 +32,22 @@ public class RedisService
         return JsonSerializer.Deserialize<UserAccount>(data.ToString(), _jsonOptions);
     }
 
+    public async Task<List<UserAccount>> GetAllAccountsAsync()
+    {
+        var accounts = new List<UserAccount>();
+        var server = _redis.GetServer(_redis.GetEndPoints().First());
+        foreach (var key in server.Keys(pattern: "eco:acc:*"))
+        {
+            var data = await _db.StringGetAsync(key);
+            if (!data.IsNullOrEmpty)
+            {
+                var acc = JsonSerializer.Deserialize<UserAccount>(data.ToString(), _jsonOptions);
+                if (acc != null) accounts.Add(acc);
+            }
+        }
+        return accounts;
+    }
+
     public async Task SaveAccountAsync(UserAccount account)
     {
         var data = JsonSerializer.Serialize(account, _jsonOptions);

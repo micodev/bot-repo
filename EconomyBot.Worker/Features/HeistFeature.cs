@@ -236,6 +236,16 @@ public class HeistFeature(
 
         account.LastHeistUtc = DateTime.UtcNow;
         account.Balance -= fee;
+
+        bool shieldReduced = false;
+        if (account.ShieldEndTimeUtc.HasValue && account.ShieldEndTimeUtc.Value > DateTime.UtcNow)
+        {
+            var newShieldEnd = account.ShieldEndTimeUtc.Value.AddHours(-_opts.StealShieldPenaltyHours);
+            if (newShieldEnd < DateTime.UtcNow) newShieldEnd = DateTime.UtcNow;
+            account.ShieldEndTimeUtc = newShieldEnd;
+            shieldReduced = true;
+        }
+
         await redisService.SaveAccountAsync(account);
 
         var winChance = _opts.HeistWinChance;
@@ -273,6 +283,7 @@ public class HeistFeature(
             sb.AppendLine(string.IsNullOrWhiteSpace(flavorText) ? fallbackReply : $"{fallbackReply}\n\n_{flavorText}_");
             sb.AppendLine($"\nNew Balance: ${FormatNumber(account.Balance)}");
             sb.AppendLine($"🎒 Asset added to `/inventory`");
+            if (shieldReduced) sb.AppendLine($"\n🛡️ Your own shield was reduced by {_opts.StealShieldPenaltyHours} hours for attacking.");
 
             await Reply(cmd, sb.ToString(), dashMarkup);
         }
@@ -298,6 +309,7 @@ public class HeistFeature(
             var sb = new StringBuilder();
             sb.AppendLine(string.IsNullOrWhiteSpace(flavorText) ? fallbackReply : $"{fallbackReply}\n\n_{flavorText}_");
             sb.AppendLine($"\nNew Balance: ${FormatNumber(account.Balance)}");
+            if (shieldReduced) sb.AppendLine($"\n🛡️ Your own shield was reduced by {_opts.StealShieldPenaltyHours} hours for attacking.");
 
             await Reply(cmd, sb.ToString(), dashMarkup);
         }

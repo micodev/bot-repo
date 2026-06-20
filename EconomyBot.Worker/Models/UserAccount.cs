@@ -27,7 +27,23 @@ public class UserAccount
     public DateTime? LastCoffeeUtc { get; set; }
     public DateTime? LastEnergyDrinkUtc { get; set; }
 
-    public DateTime? ShieldEndTimeUtc { get; set; }
+    private DateTime? _shieldEndTimeUtc;
+    public DateTime? ShieldEndTimeUtc
+    {
+        get => _shieldEndTimeUtc;
+        set
+        {
+            if (value.HasValue)
+            {
+                var maxLimit = DateTime.UtcNow.AddHours(48);
+                _shieldEndTimeUtc = value.Value > maxLimit ? maxLimit : value;
+            }
+            else
+            {
+                _shieldEndTimeUtc = null;
+            }
+        }
+    }
 
     // Passive Rent
     public long RentGeneratorFilled { get; set; } = 0;
