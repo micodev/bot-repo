@@ -19,6 +19,26 @@ public class DbSyncService(
     {
         logger.LogInformation($"DbSyncService started. Sync interval: {_opts.DbSyncIntervalSeconds}s.");
 
+        // Warm up Redis cache with user details from Postgres
+        try
+        {
+            logger.LogInformation("Warming up Redis user cache...");
+            var allUsers = await postgresService.GetAllUsersAsync();
+            foreach (var user in allUsers)
+            {
+                var existingUser = await redisService.GetUserAsync(user.UserId);
+                if (existingUser == null)
+                {
+                    await redisService.SaveOrUpdateUserAsync(user.UserId, user.AccessHash, user.FirstName, user.LastName, user.Username);
+                }
+            }
+            logger.LogInformation($"Successfully checked/warmed {allUsers.Count} users in Redis.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to warm up Redis user cache.");
+        }
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try

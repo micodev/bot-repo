@@ -423,6 +423,28 @@ public class PostgresService
         return accounts.Values.ToList();
     }
 
+    public async Task<List<EconomyBot.Worker.Models.PeerUser>> GetAllUsersAsync()
+    {
+        await using var dataSource = NpgsqlDataSource.Create(ConnectionString);
+        await using var command = dataSource.CreateCommand("SELECT UserId, AccessHash, FirstName, LastName, Username, CreatedAt, LastSeen FROM Users");
+        using var reader = await command.ExecuteReaderAsync();
+        var list = new List<EconomyBot.Worker.Models.PeerUser>();
+        while (await reader.ReadAsync())
+        {
+            list.Add(new EconomyBot.Worker.Models.PeerUser
+            {
+                UserId = reader.GetInt64(0),
+                AccessHash = reader.GetInt64(1),
+                FirstName = reader.IsDBNull(2) ? null : reader.GetString(2),
+                LastName = reader.IsDBNull(3) ? null : reader.GetString(3),
+                Username = reader.IsDBNull(4) ? null : reader.GetString(4),
+                CreatedAt = reader.IsDBNull(5) ? DateTime.UtcNow : DateTime.SpecifyKind(reader.GetDateTime(5), DateTimeKind.Utc),
+                LastSeen = reader.IsDBNull(6) ? DateTime.UtcNow : DateTime.SpecifyKind(reader.GetDateTime(6), DateTimeKind.Utc)
+            });
+        }
+        return list;
+    }
+
     public async Task<List<(int Level, string[] MaleNames, string[] FemaleNames, float MinPercentile)>> GetTiersAsync()
     {
         await using var dataSource = NpgsqlDataSource.Create(ConnectionString);
