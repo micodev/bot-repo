@@ -34,6 +34,7 @@ public class TransferFeature(RedisService redisService, IOptions<EconomyOptions>
 
         long? amountToTransfer = null;
         bool isAll = false;
+        bool isHalf = false;
 
         foreach (var word in cmd.Args)
         {
@@ -44,6 +45,11 @@ public class TransferFeature(RedisService redisService, IOptions<EconomyOptions>
             if (wLower == "all" || wLower == "max")
             {
                 isAll = true;
+                break;
+            }
+            if (wLower == "half")
+            {
+                isHalf = true;
                 break;
             }
 
@@ -71,13 +77,13 @@ public class TransferFeature(RedisService redisService, IOptions<EconomyOptions>
             }
         }
 
-        if (!amountToTransfer.HasValue && !isAll)
+        if (!amountToTransfer.HasValue && !isAll && !isHalf)
         {
             await Reply(cmd, "❌ Usage: `/ecotransfer <amount>` (reply) or `/ecotransfer @user <amount>`\nNote: A 10% tax will be applied.", dashMarkup);
             return false;
         }
 
-        if (!isAll && amountToTransfer.GetValueOrDefault() < 1000)
+        if (!isAll && !isHalf && amountToTransfer.GetValueOrDefault() < 1000)
         {
             await Reply(cmd, "❌ Minimum transfer amount is $1,000.", dashMarkup);
             return false;
@@ -103,6 +109,15 @@ public class TransferFeature(RedisService redisService, IOptions<EconomyOptions>
         if (isAll)
         {
             amount = (long)Math.Floor(account.Balance / (1.0 + taxRate));
+            if (amount < 1000)
+            {
+                await Reply(cmd, "❌ Minimum transfer amount is $1,000.", dashMarkup);
+                return false;
+            }
+        }
+        else if (isHalf)
+        {
+            amount = (long)Math.Floor((account.Balance / 2.0) / (1.0 + taxRate));
             if (amount < 1000)
             {
                 await Reply(cmd, "❌ Minimum transfer amount is $1,000.", dashMarkup);

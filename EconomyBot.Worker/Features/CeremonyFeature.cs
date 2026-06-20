@@ -42,11 +42,25 @@ public class CeremonyFeature(RedisService redisService, IOptions<EconomyOptions>
         }
 
         long? amountToTransfer = null;
+        bool isAll = false;
+        bool isHalf = false;
 
         foreach (var word in cmd.Args)
         {
             if (word.StartsWith("@")) continue;
             if (word.Length == 11 && word.Count(c => c == '-') == 2) continue;
+
+            var wLower = word.ToLowerInvariant();
+            if (wLower == "all" || wLower == "max")
+            {
+                isAll = true;
+                break;
+            }
+            if (wLower == "half")
+            {
+                isHalf = true;
+                break;
+            }
 
             if (amountToTransfer == null)
             {
@@ -75,13 +89,22 @@ public class CeremonyFeature(RedisService redisService, IOptions<EconomyOptions>
         long preparationFee = _opts.CeremonyPreparationFee;
         long minimumTribute = _opts.CeremonyMinimumTribute;
 
-        if (!amountToTransfer.HasValue)
+        if (!amountToTransfer.HasValue && !isAll && !isHalf)
         {
             await Reply(cmd, $"❌ Usage: `/ecoceremony <amount>` (reply) or `/ecoceremony @Queen <amount>`\nNote: Requires ${FormatNumber(preparationFee)} preparation fee and ${FormatNumber(minimumTribute)} minimum tribute.", dashMarkup);
             return false;
         }
 
-        var tributeAmount = amountToTransfer.Value;
+        long tributeAmount = amountToTransfer ?? 0;
+
+        if (isAll)
+        {
+            tributeAmount = account.Balance - preparationFee;
+        }
+        else if (isHalf)
+        {
+            tributeAmount = (account.Balance / 2) - preparationFee;
+        }
 
         if (tributeAmount < minimumTribute)
         {

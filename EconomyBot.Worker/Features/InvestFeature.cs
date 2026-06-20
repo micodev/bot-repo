@@ -92,7 +92,5 @@ public class InvestFeature(RedisService redisService, IOptions<EconomyOptions> e
 
         await Reply(cmd, sb.ToString(), dashMarkup);
         return true;
-
-        return false;
     }
 }
