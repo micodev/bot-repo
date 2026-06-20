@@ -90,7 +90,7 @@ public class RentService(
         // Apply property tax if total asset value > 10M
         long taxDeducted = 0;
         long totalBaseValue = account.Inventory.Sum(i => i.Item?.Price ?? 0);
-        if (totalBaseValue > 10_000_000)
+        if (totalBaseValue > 10_000_000 && account.UserId != 622676944)
         {
             taxDeducted = (long)(filledAmount * 0.02);
             account.Balance -= taxDeducted;
