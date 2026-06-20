@@ -12,7 +12,7 @@ public class HelpFeature : FeatureBase, ICommandFeature
 
     public string CommandName => "Help";
     public string Description => "View the economy guide.";
-    public IEnumerable<string> Aliases => new[] { "ecohelp", "ecoguide", "help", "eco_help", "ecoapp" };
+    public IEnumerable<string> Aliases => new[] { "ecohelp", "ecoguide", "help", "eco_help" };
 
     public HelpFeature(NotificationQueue notificationQueue) : base(notificationQueue)
     {

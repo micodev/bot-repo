@@ -36,6 +36,7 @@ builder.Services.AddSingleton<ICommandFeature, EconomyBot.Worker.Features.CoinFl
 builder.Services.AddSingleton<ICommandFeature, EconomyBot.Worker.Features.StealFeature>();
 builder.Services.AddSingleton<ICommandFeature, EconomyBot.Worker.Features.EnergyFeature>();
 builder.Services.AddSingleton<ICommandFeature, EconomyBot.Worker.Features.HelpFeature>();
+builder.Services.AddSingleton<ICommandFeature, EconomyBot.Worker.Features.EcoAppFeature>();
 builder.Services.AddSingleton<ICommandFeature, EconomyBot.Worker.Features.MarketFeature>();
 
 builder.Services.AddSingleton<ICommandFeature, EconomyBot.Worker.Features.WheelFeature>();
