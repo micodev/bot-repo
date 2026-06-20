@@ -150,7 +150,7 @@ public class PostgresService
                 UpgradeCost BIGINT NOT NULL
             );
         ");
-        await command.ExecuteNonQueryAsync();
+        await command2.ExecuteNonQueryAsync();
 
         await MigrationScript.RunMigrationAsync(dataSource);
 
