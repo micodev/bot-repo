@@ -11,6 +11,7 @@ public class OutgoingNotification
     public string Message { get; set; } = string.Empty;
     public TL.ReplyMarkup? Markup { get; set; }
     public TL.MessageEntity[]? Entities { get; set; }
+    public string? AnimationUrl { get; set; }
     public (string label, TL.InputMessageEntityMentionName? entity)[]? Mentions { get; set; }
     public bool EditMessage { get; set; }
     public Action<int>? OnMessageSent { get; set; }

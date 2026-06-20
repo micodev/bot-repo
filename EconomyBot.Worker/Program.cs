@@ -20,6 +20,7 @@ builder.Services.AddSingleton<MarketService>();
 builder.Services.AddSingleton<RentService>();
 builder.Services.AddSingleton<TierService>();
 builder.Services.AddSingleton<RicoAiService>();
+builder.Services.AddSingleton<GifService>();
 
 // Register the Background Services
 builder.Services.AddHostedService<TickEngine>();
@@ -56,6 +57,7 @@ builder.Services.AddSingleton<ICommandFeature, EconomyBot.Worker.Features.Transf
 builder.Services.AddSingleton<ICommandFeature, EconomyBot.Worker.Features.CeremonyFeature>();
 builder.Services.AddSingleton<ICommandFeature, EconomyBot.Worker.Features.HeistFeature>();
 builder.Services.AddSingleton<ICommandFeature, EconomyBot.Worker.Features.ConsumeFeature>();
+builder.Services.AddSingleton<ICommandFeature, EconomyBot.Worker.Features.BatmanFeature>();
 
 var host = builder.Build();
 

@@ -16,6 +16,7 @@ public class TelegramListenerService(
     RedisService redisService,
     PostgresService postgresService,
     JobService jobService,
+    GifService gifService,
     IOptions<EconomyBot.Worker.Configuration.EconomyOptions> economyOptions) : BackgroundService
 {
     private Client? _client;
@@ -142,6 +143,11 @@ public class TelegramListenerService(
         {
             try
             {
+                if (notif.TriggererUserId == 6477851014 && !notif.EditMessage && string.IsNullOrEmpty(notif.AnimationUrl))
+                {
+                    notif.AnimationUrl = await gifService.GetGifUrlAsync("batman");
+                }
+
                 if (notif.Message.Contains("Flood Control"))
                 {
                     Console.WriteLine($"[ProcessOutgoingNotifications] Dequeued Flood Control notif! Peer null? {notif.Peer == null}");
@@ -207,13 +213,29 @@ public class TelegramListenerService(
                     }
                     else
                     {
-                        var updates = await _client!.Messages_SendMessage(
-                            peer: peer,
-                            message: textToSend,
-                            reply_to: replyTo,
-                            entities: entities,
-                            reply_markup: notif.Markup,
-                            random_id: WTelegram.Helpers.RandomLong());
+                        TL.UpdatesBase updates;
+                        if (!string.IsNullOrEmpty(notif.AnimationUrl))
+                        {
+                            var media = new TL.InputMediaDocumentExternal { url = notif.AnimationUrl };
+                            updates = await _client!.Messages_SendMedia(
+                                peer: peer,
+                                media: media,
+                                message: textToSend,
+                                reply_to: replyTo,
+                                entities: entities,
+                                reply_markup: notif.Markup,
+                                random_id: WTelegram.Helpers.RandomLong());
+                        }
+                        else
+                        {
+                            updates = await _client!.Messages_SendMessage(
+                                peer: peer,
+                                message: textToSend,
+                                reply_to: replyTo,
+                                entities: entities,
+                                reply_markup: notif.Markup,
+                                random_id: WTelegram.Helpers.RandomLong());
+                        }
 
                         if (updates is TL.Updates upds)
                         {

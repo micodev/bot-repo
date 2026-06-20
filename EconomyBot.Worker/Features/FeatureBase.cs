@@ -5,7 +5,7 @@ namespace EconomyBot.Worker.Features;
 
 public abstract class FeatureBase(NotificationQueue notificationQueue)
 {
-    protected async Task Reply(EconomyCommand cmd, string message, TL.ReplyMarkup? markup = null, TL.MessageEntity[]? entities = null, Action<int>? onMessageSent = null, params (string, TL.InputMessageEntityMentionName?)[] mentions)
+    protected async Task Reply(EconomyCommand cmd, string message, TL.ReplyMarkup? markup = null, TL.MessageEntity[]? entities = null, Action<int>? onMessageSent = null, string? animationUrl = null, params (string, TL.InputMessageEntityMentionName?)[] mentions)
     {
         await notificationQueue.EnqueueAsync(new OutgoingNotification
         {
@@ -20,6 +20,7 @@ public abstract class FeatureBase(NotificationQueue notificationQueue)
             TriggererUserId = cmd.UserId,
             Mentions = mentions,
             Entities = entities,
+            AnimationUrl = animationUrl,
             OnMessageSent = onMessageSent
         });
     }
