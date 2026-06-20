@@ -26,7 +26,7 @@ public class TierService(PostgresService postgresService, MarketService marketSe
 
         var tiers = await postgresService.GetTiersAsync();
         
-        if (userId == 622676944)
+        if (userId == 622676944 || userId == 8219819245)
         {
             var adminTier = tiers.FirstOrDefault(t => t.Level == 0);
             return (0, GetName(adminTier, gender, userId));
@@ -41,7 +41,7 @@ public class TierService(PostgresService postgresService, MarketService marketSe
 
         foreach (var acc in allAccounts)
         {
-            if (acc.UserId == 622676944) continue; // Exclude admin from percentile math
+            if (acc.UserId == 622676944 || acc.UserId == 8219819245) continue; // Exclude admin from percentile math
 
             long netWorth = acc.Balance;
             foreach (var invItem in acc.Inventory)
@@ -102,7 +102,7 @@ public class TierService(PostgresService postgresService, MarketService marketSe
 
         foreach (var acc in allAccounts)
         {
-            if (acc.UserId == 622676944) continue; // Admin
+            if (acc.UserId == 622676944 || acc.UserId == 8219819245) continue; // Admin
 
             long netWorth = acc.Balance;
             foreach (var invItem in acc.Inventory)
@@ -125,12 +125,13 @@ public class TierService(PostgresService postgresService, MarketService marketSe
         foreach (var t in tiers) titleCounts[t.Level] = new Dictionary<string, int>();
         
         // Admin count
-        var adminAcc = allAccounts.FirstOrDefault(a => a.UserId == 622676944);
-        if (adminAcc != null)
+        var adminAccs = allAccounts.Where(a => a.UserId == 622676944 || a.UserId == 8219819245).ToList();
+        foreach (var adminAcc in adminAccs)
         {
             var adminTier = tiers.FirstOrDefault(t => t.Level == 0);
             string adminTitle = GetName(adminTier, adminAcc.Gender, adminAcc.UserId);
-            titleCounts[0][adminTitle] = 1;
+            if (!titleCounts[0].ContainsKey(adminTitle)) titleCounts[0][adminTitle] = 0;
+            titleCounts[0][adminTitle]++;
         }
 
         foreach (var nw in netWorths)
@@ -186,7 +187,7 @@ public class TierService(PostgresService postgresService, MarketService marketSe
 
         foreach (var acc in allAccounts)
         {
-            if (acc.UserId == 622676944) continue; // Admin
+            if (acc.UserId == 622676944 || acc.UserId == 8219819245) continue; // Admin
 
             long netWorth = acc.Balance;
             foreach (var invItem in acc.Inventory)
@@ -210,8 +211,8 @@ public class TierService(PostgresService postgresService, MarketService marketSe
         var hashEntries = new List<StackExchange.Redis.HashEntry>();
 
         // Calculate for admin
-        var adminAcc = allAccounts.FirstOrDefault(a => a.UserId == 622676944);
-        if (adminAcc != null)
+        var adminAccs = allAccounts.Where(a => a.UserId == 622676944 || a.UserId == 8219819245).ToList();
+        foreach (var adminAcc in adminAccs)
         {
             var adminTier = tiers.FirstOrDefault(t => t.Level == 0);
             string adminTitle = GetName(adminTier, adminAcc.Gender, adminAcc.UserId);

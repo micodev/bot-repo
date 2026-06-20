@@ -69,9 +69,15 @@ public abstract class FeatureBase(NotificationQueue notificationQueue)
 
     protected string FormatNumber(long num)
     {
-        if (num >= 1_000_000_000) return (num / 1_000_000_000D).ToString("0.#") + "B";
-        if (num >= 1_000_000) return (num / 1_000_000D).ToString("0.#") + "M";
-        if (num >= 1_000) return (num / 1_000D).ToString("0.#") + "K";
+        double d = num;
+        double abs = Math.Abs(d);
+
+        if (abs >= 1_000_000_000_000_000_000D) return (d / 1_000_000_000_000_000_000D).ToString("0.##") + "Qi";
+        if (abs >= 1_000_000_000_000_000D) return (d / 1_000_000_000_000_000D).ToString("0.##") + "Q";
+        if (abs >= 1_000_000_000_000D) return (d / 1_000_000_000_000D).ToString("0.##") + "T";
+        if (abs >= 1_000_000_000D) return (d / 1_000_000_000D).ToString("0.##") + "B";
+        if (abs >= 1_000_000D) return (d / 1_000_000D).ToString("0.##") + "M";
+        if (abs >= 1_000D) return (d / 1_000D).ToString("0.##") + "K";
         return num.ToString("0");
     }
 

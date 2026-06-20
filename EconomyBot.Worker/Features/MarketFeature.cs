@@ -94,14 +94,6 @@ public class MarketFeature : FeatureBase, ICommandFeature
         return false;
     }
 
-    private string FormatMoney(long val) => val switch
-    {
-        >= 1_000_000_000 => $"{(double)val / 1_000_000_000:0.#}B",
-        >= 1_000_000 => $"{(double)val / 1_000_000:0.#}M",
-        >= 1_000 => $"{(double)val / 1_000:0.#}K",
-        _ => val.ToString()
-    };
-
     private async Task<bool> UpdateMessageWithMarketOverview(EconomyCommand cmd, UserAccount account)
     {
         var response = await BuildMarketResponseAsync(cmd.UserId, null);
@@ -204,7 +196,7 @@ public class MarketFeature : FeatureBase, ICommandFeature
                 entities.Add(new TL.MessageEntityBold { offset = itemNameStart, length = sb.Length - itemNameStart });
                 sb.Append(" — ");
                 int priceStart = sb.Length;
-                sb.Append($"${FormatMoney(currentPrice)}");
+                sb.Append($"${FormatNumber(currentPrice)}");
                 entities.Add(new TL.MessageEntityBold { offset = priceStart, length = sb.Length - priceStart });
                 sb.AppendLine();
                 entities.Add(new TL.MessageEntityBlockquote { offset = bqStart, length = sb.Length - bqStart - 1 });
@@ -299,7 +291,7 @@ public class MarketFeature : FeatureBase, ICommandFeature
         if (maxCanBuy == 0)
         {
             var msg = maxAffordable == 0
-                ? $"💸 **Insufficient funds!**\n\n🏷️ **{item.ItemName}**\n💰 Price: **${FormatMoney(marketPrice)}**\n🏦 Balance: ${FormatMoney(account.Balance)}"
+                ? $"💸 **Insufficient funds!**\n\n🏷️ **{item.ItemName}**\n💰 Price: **${FormatNumber(marketPrice)}**\n🏦 Balance: ${FormatNumber(account.Balance)}"
                 : $"❌ Inventory Full! Limit is {account.MaxInventoryCapacity} items.";
             return (msg, new ReplyInlineMarkup { rows = new[] { backRow } });
         }
@@ -310,9 +302,9 @@ public class MarketFeature : FeatureBase, ICommandFeature
         var sb = new StringBuilder();
         sb.AppendLine($"🛒 **BUY ASSET:**\n");
         sb.AppendLine($"**{item.ItemName}**");
-        sb.AppendLine($"📊 Base Price: ${FormatMoney(item.Price)}");
-        sb.AppendLine($"🏷️ Market Price: **${FormatMoney(marketPrice)}**\n");
-        sb.AppendLine($"🏦 Your Balance: ${FormatMoney(account.Balance)}");
+        sb.AppendLine($"📊 Base Price: ${FormatNumber(item.Price)}");
+        sb.AppendLine($"🏷️ Market Price: **${FormatNumber(marketPrice)}**\n");
+        sb.AppendLine($"🏦 Your Balance: ${FormatNumber(account.Balance)}");
         sb.AppendLine($"You can buy up to **{maxCanBuy}** (Inventory: {currentInventorySize}/{account.MaxInventoryCapacity})\n");
         sb.AppendLine("How many would you like to buy?");
 
@@ -327,7 +319,7 @@ public class MarketFeature : FeatureBase, ICommandFeature
             new KeyboardButtonCallback { text = "➕", data = Encoding.UTF8.GetBytes($"eco_market_qty:{userId}:{item.Id}:{qty + 1}") }
         }
         });
-        rows.Add(new KeyboardButtonRow { buttons = new KeyboardButtonBase[] { new KeyboardButtonCallback { text = $"✅ Buy ({qty}) - ${FormatMoney(qty * marketPrice)}", data = Encoding.UTF8.GetBytes($"eco_market_buy_bulk:{userId}:{item.Id}:{qty}") } } });
+        rows.Add(new KeyboardButtonRow { buttons = new KeyboardButtonBase[] { new KeyboardButtonCallback { text = $"✅ Buy ({qty}) - ${FormatNumber(qty * marketPrice)}", data = Encoding.UTF8.GetBytes($"eco_market_buy_bulk:{userId}:{item.Id}:{qty}") } } });
         rows.Add(backRow);
 
         return (sb.ToString(), new ReplyInlineMarkup { rows = rows.ToArray() });
@@ -348,7 +340,7 @@ public class MarketFeature : FeatureBase, ICommandFeature
 
         if (account.Balance < totalCost)
         {
-            await Reply(cmd, $"❌ You cannot afford {countToBuy}x {item.ItemName}.\n\n🏷️ Cost: **${FormatMoney(totalCost)}**\n🏦 Balance: **${FormatMoney(account.Balance)}**", markup: backMarkup);
+            await Reply(cmd, $"❌ You cannot afford {countToBuy}x {item.ItemName}.\n\n🏷️ Cost: **${FormatNumber(totalCost)}**\n🏦 Balance: **${FormatNumber(account.Balance)}**", markup: backMarkup);
             return false;
         }
 
@@ -365,7 +357,7 @@ public class MarketFeature : FeatureBase, ICommandFeature
             account.Inventory.Add(new AccountItem { ItemId = item.Id, PurchasePrice = marketPrice, PurchaseDate = now, Item = item });
         }
 
-        var reply = $"✅ **BULK ASSET PURCHASED!**\n\n**{countToBuy}x {item.ItemName}**\n🏷️ Total Paid: **${FormatMoney(totalCost)}**\n🏦 Remaining Balance: **${FormatMoney(account.Balance)}**";
+        var reply = $"✅ **BULK ASSET PURCHASED!**\n\n**{countToBuy}x {item.ItemName}**\n🏷️ Total Paid: **${FormatNumber(totalCost)}**\n🏦 Remaining Balance: **${FormatNumber(account.Balance)}**";
 
         await Reply(cmd, reply, markup: backMarkup);
         return true; // mutated
@@ -437,7 +429,7 @@ public class MarketFeature : FeatureBase, ICommandFeature
             var roiEmoji = diff >= 0.1 ? "📈" : diff <= -0.1 ? "📉" : "➡️";
 
             sb.AppendLine($"**{item.ItemName}** (x{count})");
-            sb.AppendLine($"   Avg Bought: ${FormatMoney(avgPurchasePrice)}  |  Now: **${FormatMoney(marketPrice)}**");
+            sb.AppendLine($"   Avg Bought: ${FormatNumber(avgPurchasePrice)}  |  Now: **${FormatNumber(marketPrice)}**");
             sb.AppendLine($"   {roiEmoji} Change: **{diffStr}** ({roiStr})\n");
 
             rows.Add(new KeyboardButtonRow { buttons = new KeyboardButtonBase[] { new KeyboardButtonCallback { text = $"Sell {item.ItemName} ({diffStr})", data = Encoding.UTF8.GetBytes($"eco_asset_sell_item:{userId}:{item.Id}") } } });
@@ -483,7 +475,7 @@ public class MarketFeature : FeatureBase, ICommandFeature
         var sb = new StringBuilder();
         sb.AppendLine($"💼 **SELL ASSET:**\n");
         sb.AppendLine($"**{item.ItemName}** (x{maxCount})");
-        sb.AppendLine($"   Now: **${FormatMoney(marketPrice)}**");
+        sb.AppendLine($"   Now: **${FormatNumber(marketPrice)}**");
         sb.AppendLine($"   {roiEmoji} Change: **{diffStr}** ({(roi >= 0 ? "+" : "")}{roi:F1}%)\n");
         sb.AppendLine("How many would you like to sell?");
 
@@ -498,7 +490,7 @@ public class MarketFeature : FeatureBase, ICommandFeature
             new KeyboardButtonCallback { text = "➕", data = Encoding.UTF8.GetBytes($"eco_asset_sell_qty:{userId}:{item.Id}:{qty + 1}") }
         }
         });
-        rows.Add(new KeyboardButtonRow { buttons = new KeyboardButtonBase[] { new KeyboardButtonCallback { text = $"✅ Sell ({qty}) - ${FormatMoney(qty * marketPrice)}", data = Encoding.UTF8.GetBytes($"eco_asset_sell_bulk:{userId}:{item.Id}:{qty}:0") } } });
+        rows.Add(new KeyboardButtonRow { buttons = new KeyboardButtonBase[] { new KeyboardButtonCallback { text = $"✅ Sell ({qty}) - ${FormatNumber(qty * marketPrice)}", data = Encoding.UTF8.GetBytes($"eco_asset_sell_bulk:{userId}:{item.Id}:{qty}:0") } } });
 
         if (account.DoubleSellCharges > 0)
         {
@@ -550,7 +542,7 @@ public class MarketFeature : FeatureBase, ICommandFeature
             account.Inventory.Remove(owned[i]);
         }
 
-        var reply = $"💰 **ASSET SOLD!**\n\n**{actualCount}x {item.ItemName}**\n💵 Total Sold for: **${FormatMoney(proceeds)}**\n🏦 New Balance: **${FormatMoney(account.Balance)}**";
+        var reply = $"💰 **ASSET SOLD!**\n\n**{actualCount}x {item.ItemName}**\n💵 Total Sold for: **${FormatNumber(proceeds)}**\n🏦 New Balance: **${FormatNumber(account.Balance)}**";
 
         await Reply(cmd, reply, markup: backMarkup);
         return true; // mutated
@@ -580,7 +572,7 @@ public class MarketFeature : FeatureBase, ICommandFeature
             {
                 var count = ig.Count();
                 var avgPrice = (long)ig.Average(ai => ai.PurchasePrice);
-                sb.AppendLine($"   └ {count}x {ig.Key} (Avg: ${FormatMoney(avgPrice)})");
+                sb.AppendLine($"   └ {count}x {ig.Key} (Avg: ${FormatNumber(avgPrice)})");
             }
             sb.AppendLine();
         }
@@ -667,8 +659,8 @@ public class MarketFeature : FeatureBase, ICommandFeature
         sb.AppendLine();
         sb.AppendLine($"**{match.Item?.ItemName}** transferred to {{0}}!");
         sb.AppendLine();
-        sb.AppendLine($"🏷️ Originally bought for: ${FormatMoney(match.PurchasePrice)}");
-        sb.AppendLine($"📊 Current market value: **${FormatMoney(marketPrice)}**");
+        sb.AppendLine($"🏷️ Originally bought for: ${FormatNumber(match.PurchasePrice)}");
+        sb.AppendLine($"📊 Current market value: **${FormatNumber(marketPrice)}**");
         sb.AppendLine();
 
         if (roi >= 50)

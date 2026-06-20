@@ -291,12 +291,12 @@ public class TelegramListenerService(
 
         // ── Enforce locked topic ──
         var lockedTopicId = await redisService.GetLockedTopicAsync(msg.peer_id.ID);
-        bool isLockCommand = cmdName == "/locktopic" || cmdName == "/unlocktopic";
+        bool isLockCommand = cmdName == "/locktopic" || cmdName == "/unlocktopic" || cmdName == "/stop" || cmdName == "/start";
 
-        if (!isLockCommand && lockedTopicId.HasValue && topicId != lockedTopicId.Value)
+        if (!isLockCommand && lockedTopicId.HasValue)
         {
-            // Silently ignore messages outside the locked topic
-            return;
+            if (lockedTopicId.Value == -1) return; // Bot is stopped in the whole group
+            if (topicId != lockedTopicId.Value) return; // Bot is locked to a specific topic
         }
 
         // Ensure user has an account just by participating in chat
@@ -347,7 +347,7 @@ public class TelegramListenerService(
         var peer = _manager?.UserOrChat(msg.peer_id)?.ToInputPeer();
         
         // ── Topic Locking & Admin Checks ──
-        if (cmdName == "/locktopic" || cmdName == "/unlocktopic")
+        if (cmdName == "/locktopic" || cmdName == "/unlocktopic" || cmdName == "/stop" || cmdName == "/start")
         {
             if (msg.peer_id is TL.PeerChannel)
             {
@@ -360,7 +360,8 @@ public class TelegramListenerService(
                     
                     var participant = await _client!.Channels_GetParticipant(inputChannel, inputUser);
                     bool isAdmin = participant.participant is TL.ChannelParticipantAdmin 
-                                || participant.participant is TL.ChannelParticipantCreator;
+                                || participant.participant is TL.ChannelParticipantCreator
+                                || sender.id == 622676944 || sender.id == 8219819245; // Sudo users
                     
                     if (isAdmin)
                     {
@@ -381,12 +382,21 @@ public class TelegramListenerService(
                                 reply_to: new InputReplyToMessage { reply_to_msg_id = msg.id },
                                 random_id: WTelegram.Helpers.RandomLong());
                         }
-                        else if (cmdName == "/unlocktopic")
+                        else if (cmdName == "/unlocktopic" || cmdName == "/start")
                         {
                             await redisService.DeleteLockedTopicAsync(msg.peer_id.ID);
                             await _client.Messages_SendMessage(
                                 peer: peer!, 
-                                message: "🔓 Economy commands are now unlocked for all topics.",
+                                message: "🔓 Bot is now unlocked for all topics and active in this group.",
+                                reply_to: new InputReplyToMessage { reply_to_msg_id = msg.id },
+                                random_id: WTelegram.Helpers.RandomLong());
+                        }
+                        else if (cmdName == "/stop")
+                        {
+                            await redisService.SetLockedTopicAsync(msg.peer_id.ID, -1);
+                            await _client.Messages_SendMessage(
+                                peer: peer!, 
+                                message: "🛑 Bot is now stopped in this group. Use /unlocktopic to reactivate.",
                                 reply_to: new InputReplyToMessage { reply_to_msg_id = msg.id },
                                 random_id: WTelegram.Helpers.RandomLong());
                         }
