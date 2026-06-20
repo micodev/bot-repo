@@ -61,6 +61,18 @@ public class RedisService
         await tx.ExecuteAsync();
     }
 
+    public async Task CacheAccountAsync(UserAccount account)
+    {
+        var data = JsonSerializer.Serialize(account, _jsonOptions);
+        var tx = _db.CreateTransaction();
+        _ = tx.StringSetAsync($"eco:acc:{account.UserId}", data);
+        
+        if (!string.IsNullOrEmpty(account.AccountNumber))
+            _ = tx.StringSetAsync($"eco:idx:accnum:{account.AccountNumber.ToUpperInvariant()}", account.UserId);
+
+        await tx.ExecuteAsync();
+    }
+
     public async Task SaveOrUpdateUserAsync(long userId, long accessHash, string? firstName, string? lastName, string? username)
     {
         var user = await GetUserAsync(userId) ?? new PeerUser { UserId = userId, CreatedAt = DateTime.UtcNow };

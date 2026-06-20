@@ -33,10 +33,22 @@ public class DbSyncService(
                 }
             }
             logger.LogInformation($"Successfully checked/warmed {allUsers.Count} users in Redis.");
+
+            logger.LogInformation("Warming up Redis account cache...");
+            var allAccounts = await postgresService.GetAllAccountsAsync();
+            foreach (var acc in allAccounts)
+            {
+                var existingAcc = await redisService.GetAccountAsync(acc.UserId);
+                if (existingAcc == null)
+                {
+                    await redisService.CacheAccountAsync(acc);
+                }
+            }
+            logger.LogInformation($"Successfully checked/warmed {allAccounts.Count} accounts in Redis.");
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to warm up Redis user cache.");
+            logger.LogError(ex, "Failed to warm up Redis cache.");
         }
 
         while (!stoppingToken.IsCancellationRequested)
