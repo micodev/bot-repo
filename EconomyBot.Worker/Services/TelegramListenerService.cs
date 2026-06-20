@@ -37,7 +37,7 @@ public class TelegramListenerService(
         lock (state.MessageTimestamps)
         {
             // Remove timestamps older than the cooldown window
-            while (state.MessageTimestamps.Count > 0 && 
+            while (state.MessageTimestamps.Count > 0 &&
                   (now - state.MessageTimestamps.Peek()).TotalSeconds > economyOptions.Value.FloodCooldownSeconds)
             {
                 state.MessageTimestamps.Dequeue();
@@ -87,8 +87,8 @@ public class TelegramListenerService(
         var apiHash = configuration.GetValue<string>("Telegram:api_hash");
         var botToken = configuration.GetValue<string>("Telegram:bot_token");
 
-        if (string.IsNullOrEmpty(apiIdStr) || apiIdStr == "YOUR_API_ID_HERE" || 
-            string.IsNullOrEmpty(apiHash) || apiHash == "YOUR_API_HASH_HERE" || 
+        if (string.IsNullOrEmpty(apiIdStr) || apiIdStr == "YOUR_API_ID_HERE" ||
+            string.IsNullOrEmpty(apiHash) || apiHash == "YOUR_API_HASH_HERE" ||
             string.IsNullOrEmpty(botToken) || botToken == "YOUR_BOT_TOKEN_HERE")
         {
             logger.LogWarning("Telegram credentials not found or invalid in appsettings.json. Skipping Telegram connection.");
@@ -172,7 +172,7 @@ public class TelegramListenerService(
 
                     string textToSend = notif.Message;
                     var entities = _client!.MarkdownToEntities(ref textToSend);
-                    
+
                     if (notif.Mentions != null && notif.Mentions.Length > 0)
                     {
                         var (finalText, finalEntities) = MentionHelper.BuildWithEntities(textToSend, entities, notif.Mentions);
@@ -208,13 +208,13 @@ public class TelegramListenerService(
                     else
                     {
                         var updates = await _client!.Messages_SendMessage(
-                            peer: peer, 
-                            message: textToSend, 
+                            peer: peer,
+                            message: textToSend,
                             reply_to: replyTo,
                             entities: entities,
                             reply_markup: notif.Markup,
                             random_id: WTelegram.Helpers.RandomLong());
-                            
+
                         if (updates is TL.Updates upds)
                         {
                             foreach (var u in upds.updates)
@@ -334,18 +334,19 @@ public class TelegramListenerService(
 
         if (shouldWarnMsg)
         {
-            var notif = new OutgoingNotification { 
-                ChatId = msg.peer_id.ID, 
+            var notif = new OutgoingNotification
+            {
+                ChatId = msg.peer_id.ID,
                 TopicId = (int?)topicId,
                 Peer = _manager?.UserOrChat(msg.peer_id)?.ToInputPeer(),
                 ReplyToMsgId = msg.id,
-                Message = "⚠️ **Flood Control:** You are sending commands too quickly. Please wait a moment." 
+                Message = "⚠️ **Flood Control:** You are sending commands too quickly. Please wait a moment."
             };
             _ = notificationQueue.EnqueueAsync(notif, CancellationToken.None);
         }
 
         var peer = _manager?.UserOrChat(msg.peer_id)?.ToInputPeer();
-        
+
         // ── Topic Locking & Admin Checks ──
         if (cmdName == "/locktopic" || cmdName == "/unlocktopic" || cmdName == "/stop" || cmdName == "/start")
         {
@@ -357,21 +358,21 @@ public class TelegramListenerService(
                 {
                     var inputChannel = new TL.InputChannel(chat.id, chat.access_hash);
                     var inputUser = new TL.InputUser(sender.id, sender.access_hash);
-                    
-                    bool isAdmin = sender.id == 622676944; // Sudo users are always admins
-                    
+
+                    bool isAdmin = sender.id == 8219819245; // Sudo users are always admins
+                    //8219819245
                     if (!isAdmin)
                     {
                         try
                         {
                             var participant = await _client!.Channels_GetParticipant(inputChannel, inputUser);
-                            isAdmin = participant.participant is TL.ChannelParticipantAdmin 
+                            isAdmin = participant.participant is TL.ChannelParticipantAdmin
                                     || participant.participant is TL.ChannelParticipantCreator;
                         }
                         catch (TL.RpcException ex) when (ex.Message.Contains("CHAT_ADMIN_REQUIRED"))
                         {
                             await _client.Messages_SendMessage(
-                                peer: peer!, 
+                                peer: peer!,
                                 message: "⚠️ I need admin rights to verify your permissions. Please promote me to admin first.",
                                 reply_to: new InputReplyToMessage { reply_to_msg_id = msg.id },
                                 random_id: WTelegram.Helpers.RandomLong());
@@ -382,14 +383,14 @@ public class TelegramListenerService(
                             isAdmin = false;
                         }
                     }
-                    
+
                     if (isAdmin)
                     {
                         if (cmdName == "/locktopic" && topicId.HasValue)
                         {
                             await redisService.SetLockedTopicAsync(msg.peer_id.ID, (int)topicId.Value);
                             await _client.Messages_SendMessage(
-                                peer: peer!, 
+                                peer: peer!,
                                 message: $"🔒 Economy commands are now locked to this topic (ID: {topicId.Value}).",
                                 reply_to: new InputReplyToMessage { reply_to_msg_id = msg.id },
                                 random_id: WTelegram.Helpers.RandomLong());
@@ -397,7 +398,7 @@ public class TelegramListenerService(
                         else if (cmdName == "/locktopic" && !topicId.HasValue)
                         {
                             await _client.Messages_SendMessage(
-                                peer: peer!, 
+                                peer: peer!,
                                 message: "⚠️ You must use this command inside a topic/thread to lock it.",
                                 reply_to: new InputReplyToMessage { reply_to_msg_id = msg.id },
                                 random_id: WTelegram.Helpers.RandomLong());
@@ -406,7 +407,7 @@ public class TelegramListenerService(
                         {
                             await redisService.DeleteLockedTopicAsync(msg.peer_id.ID);
                             await _client.Messages_SendMessage(
-                                peer: peer!, 
+                                peer: peer!,
                                 message: "🔓 Bot is now unlocked for all topics and active in this group.",
                                 reply_to: new InputReplyToMessage { reply_to_msg_id = msg.id },
                                 random_id: WTelegram.Helpers.RandomLong());
@@ -415,7 +416,7 @@ public class TelegramListenerService(
                         {
                             await redisService.SetLockedTopicAsync(msg.peer_id.ID, -1);
                             await _client.Messages_SendMessage(
-                                peer: peer!, 
+                                peer: peer!,
                                 message: "🛑 Bot is now stopped in this group. Use /unlocktopic to reactivate.",
                                 reply_to: new InputReplyToMessage { reply_to_msg_id = msg.id },
                                 random_id: WTelegram.Helpers.RandomLong());
@@ -424,7 +425,7 @@ public class TelegramListenerService(
                     else
                     {
                         await _client.Messages_SendMessage(
-                            peer: peer!, 
+                            peer: peer!,
                             message: "❌ You must be an admin to use this command.",
                             reply_to: new InputReplyToMessage { reply_to_msg_id = msg.id },
                             random_id: WTelegram.Helpers.RandomLong());
@@ -509,14 +510,14 @@ public class TelegramListenerService(
             }
         }
 
-        ecoCmd = new EconomyCommand 
-        { 
-            UserId = userId, 
-            ChatId = msg.peer_id.ID, 
-            Peer = peer, 
-            TopicId = (int?)topicId, 
-            ReplyToMsgId = msg.id, 
-            CommandType = cmdName, 
+        ecoCmd = new EconomyCommand
+        {
+            UserId = userId,
+            ChatId = msg.peer_id.ID,
+            Peer = peer,
+            TopicId = (int?)topicId,
+            ReplyToMsgId = msg.id,
+            CommandType = cmdName,
             Args = parts.Skip(1).ToArray(),
             TargetUserId = targetUserId,
             UserName = userName,
@@ -535,7 +536,7 @@ public class TelegramListenerService(
     {
         try
         {
-            if (IsUserFlooding(cbq.user_id, out bool shouldWarnCbq)) 
+            if (IsUserFlooding(cbq.user_id, out bool shouldWarnCbq))
             {
                 await _client!.Messages_SetBotCallbackAnswer(cbq.query_id, cache_time: 0, message: "⚠️ Stop spamming! Wait a moment.", alert: true);
                 return;
@@ -595,7 +596,7 @@ public class TelegramListenerService(
             await commandQueue.EnqueueAsync(ecoCmd);
             var argsString = ecoCmd.Args != null && ecoCmd.Args.Length > 0 ? string.Join(":", ecoCmd.Args) : "none";
             Console.WriteLine($"\x1b[1;35m[Callback]\x1b[0m \x1b[1;32m{ecoCmd.CommandType}\x1b[0m from \x1b[1;33m{userName}\x1b[0m ({cbq.user_id}) Data: {argsString}");
-            
+
             // Note: Callback is now answered asynchronously in ProcessOutgoingNotificationsAsync
         }
         catch (Exception ex)
