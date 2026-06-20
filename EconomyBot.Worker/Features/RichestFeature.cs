@@ -87,7 +87,7 @@ public class RichestFeature(PostgresService postgresService, MarketService marke
             name = name.Replace("*", "").Replace("_", "").Replace("`", "").Replace("[", "").Replace("]", "");
 
             long assetWorth = netWorth - balance;
-            string assetString = assetWorth > 0 ? $" | 💎 ${FormatNumber(assetWorth)}" : "";
+            string assetString = assetWorth > 0 ? $" (💵 ${FormatNumber(balance)} | 💎 ${FormatNumber(assetWorth)})" : $" (💵 ${FormatNumber(balance)})";
 
             int nameStart = sb.Length;
             sb.Append($"{rank}. {name}");
@@ -95,7 +95,7 @@ public class RichestFeature(PostgresService postgresService, MarketService marke
             sb.AppendLine();
 
             int bqStart = sb.Length;
-            sb.Append($"💰 ${FormatNumber(balance)}{assetString}\n");
+            sb.Append($"💰 ${FormatNumber(netWorth)}{assetString}\n");
             entities.Add(new TL.MessageEntityBlockquote { offset = bqStart, length = sb.Length - bqStart - 1 });
 
             if (!string.IsNullOrEmpty(acc.AccountNumber))
