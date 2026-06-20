@@ -348,16 +348,39 @@ public class PostgresService
         return list;
     }
 
+    public async Task<List<EconomyBot.Worker.Models.CardType>> GetCardTypesAsync()
+    {
+        await using var dataSource = NpgsqlDataSource.Create(ConnectionString);
+        await using var command = dataSource.CreateCommand("SELECT Id, Name FROM CardTypes");
+        using var reader = await command.ExecuteReaderAsync();
+        var list = new List<EconomyBot.Worker.Models.CardType>();
+        while (await reader.ReadAsync())
+        {
+            list.Add(new EconomyBot.Worker.Models.CardType
+            {
+                Id = reader.GetInt32(0),
+                Name = reader.GetString(1)
+            });
+        }
+        return list;
+    }
+
     public async Task<List<EconomyBot.Worker.Models.UserAccount>> GetAllAccountsAsync()
     {
         await using var dataSource = NpgsqlDataSource.Create(ConnectionString);
         
         var accounts = new Dictionary<long, EconomyBot.Worker.Models.UserAccount>();
         
+        var allCards = await GetCardTypesAsync();
+        var cardsDict = allCards.ToDictionary(c => c.Id);
+
         await using var command = dataSource.CreateCommand("SELECT AccountId, UserId, Balance, AccountNumber, Thief, CardTypeId, JobLevel, Gender, LastSalaryClaimUtc, LastTreasureHuntUtc, LastWheelSpinUtc, LastInvestUtc, LastCoinFlipUtc, LastStealUtc, LastRaidUtc, LastBribeUtc, ShieldEndTimeUtc, LastBurgerUtc, LastRentUpdateUtc, RentGeneratorFilled, LastWealthTaxUtc, Energy, LastEnergyRegenUtc, LuckBoostEndTimeUtc, DoubleSellCharges, SoloRaidPasses, LastPizzaUtc, LastCoffeeUtc, LastEnergyDrinkUtc, LastHeistUtc, SlotTempBalance, EnergyCrashPendingPenalty, EnergyCrashPenalty, EnergyCrashEndTimeUtc FROM Accounts");
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
+            var cardTypeId = reader.GetInt32(5);
+            cardsDict.TryGetValue(cardTypeId, out var cardTypeRef);
+
             var acc = new EconomyBot.Worker.Models.UserAccount
             {
                 AccountId = reader.GetInt64(0),
@@ -365,7 +388,8 @@ public class PostgresService
                 Balance = reader.GetInt64(2),
                 AccountNumber = reader.GetString(3),
                 Thief = reader.GetInt64(4),
-                CardTypeId = reader.GetInt32(5),
+                CardTypeId = cardTypeId,
+                CardType = cardTypeRef,
                 JobLevel = reader.GetInt32(6),
                 Gender = reader.IsDBNull(7) ? null : reader.GetString(7),
                 LastSalaryClaimUtc = reader.IsDBNull(8) ? null : DateTime.SpecifyKind(reader.GetDateTime(8), DateTimeKind.Utc),
@@ -400,6 +424,9 @@ public class PostgresService
         }
         await reader.CloseAsync();
 
+        var allItems = await GetItemsAsync();
+        var itemsDict = allItems.ToDictionary(i => i.Id);
+
         await using var itemsCmd = dataSource.CreateCommand("SELECT Id, AccountId, ItemId, PurchasePrice, PurchaseDate FROM AccountItems");
         using var itemsReader = await itemsCmd.ExecuteReaderAsync();
         while (await itemsReader.ReadAsync())
@@ -408,13 +435,17 @@ public class PostgresService
             var accountId = itemsReader.GetInt64(1);
             if (accounts.TryGetValue(accountId, out var acc))
             {
+                var itemId = itemsReader.GetInt64(2);
+                itemsDict.TryGetValue(itemId, out var itemRef);
+
                 acc.Inventory.Add(new EconomyBot.Worker.Models.AccountItem
                 {
                     Id = id,
                     AccountId = accountId,
-                    ItemId = itemsReader.GetInt64(2),
+                    ItemId = itemId,
                     PurchasePrice = itemsReader.GetInt64(3),
-                    PurchaseDate = DateTime.SpecifyKind(itemsReader.GetDateTime(4), DateTimeKind.Utc)
+                    PurchaseDate = DateTime.SpecifyKind(itemsReader.GetDateTime(4), DateTimeKind.Utc),
+                    Item = itemRef
                 });
             }
         }
