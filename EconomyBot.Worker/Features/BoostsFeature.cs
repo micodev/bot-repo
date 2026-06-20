@@ -126,17 +126,18 @@ public class BoostsFeature(RedisService redisService, MarketService marketServic
             return true;
         }
 
+        // Route purchase callbacks FIRST (before any userId guard)
+        if (parts[0] == "eco_recharge_buy") return await HandleRechargeBuyCallbackAsync(cmd, account, parts);
+        if (parts[0] == "eco_energy_buy") return await HandleEnergyBuyCallbackAsync(cmd, account, parts);
+        if (parts[0] == "eco_luck_buy") return await HandleLuckBuyCallbackAsync(cmd, account, parts);
+        if (parts[0] == "eco_pass_buy") return await HandlePassBuyCallbackAsync(cmd, account, parts);
+
         var type = parts[1];
         if (long.TryParse(parts[2], out var uId) && uId != cmd.UserId)
         {
             await AnswerCallback(cmd, "❌ This menu is not for you!");
             return false;
         }
-
-        if (parts[0] == "eco_recharge_buy") return await HandleRechargeBuyCallbackAsync(cmd, account, parts);
-        if (parts[0] == "eco_energy_buy") return await HandleEnergyBuyCallbackAsync(cmd, account, parts);
-        if (parts[0] == "eco_luck_buy") return await HandleLuckBuyCallbackAsync(cmd, account, parts);
-        if (parts[0] == "eco_pass_buy") return await HandlePassBuyCallbackAsync(cmd, account, parts);
 
         switch (type)
         {
