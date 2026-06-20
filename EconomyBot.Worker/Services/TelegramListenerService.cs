@@ -358,10 +358,30 @@ public class TelegramListenerService(
                     var inputChannel = new TL.InputChannel(chat.id, chat.access_hash);
                     var inputUser = new TL.InputUser(sender.id, sender.access_hash);
                     
-                    var participant = await _client!.Channels_GetParticipant(inputChannel, inputUser);
-                    bool isAdmin = participant.participant is TL.ChannelParticipantAdmin 
-                                || participant.participant is TL.ChannelParticipantCreator
-                                || sender.id == 622676944 || sender.id == 8219819245; // Sudo users
+                    bool isAdmin = sender.id == 622676944 || sender.id == 8219819245; // Sudo users are always admins
+                    
+                    if (!isAdmin)
+                    {
+                        try
+                        {
+                            var participant = await _client!.Channels_GetParticipant(inputChannel, inputUser);
+                            isAdmin = participant.participant is TL.ChannelParticipantAdmin 
+                                    || participant.participant is TL.ChannelParticipantCreator;
+                        }
+                        catch (TL.RpcException ex) when (ex.Message.Contains("CHAT_ADMIN_REQUIRED"))
+                        {
+                            await _client.Messages_SendMessage(
+                                peer: peer!, 
+                                message: "⚠️ I need admin rights to verify your permissions. Please promote me to admin first.",
+                                reply_to: new InputReplyToMessage { reply_to_msg_id = msg.id },
+                                random_id: WTelegram.Helpers.RandomLong());
+                            return;
+                        }
+                        catch
+                        {
+                            isAdmin = false;
+                        }
+                    }
                     
                     if (isAdmin)
                     {
