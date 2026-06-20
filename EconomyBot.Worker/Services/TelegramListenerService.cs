@@ -358,7 +358,7 @@ public class TelegramListenerService(
                     var inputChannel = new TL.InputChannel(chat.id, chat.access_hash);
                     var inputUser = new TL.InputUser(sender.id, sender.access_hash);
                     
-                    bool isAdmin = sender.id == 622676944 || sender.id == 8219819245; // Sudo users are always admins
+                    bool isAdmin = sender.id == 622676944; // Sudo users are always admins
                     
                     if (!isAdmin)
                     {
