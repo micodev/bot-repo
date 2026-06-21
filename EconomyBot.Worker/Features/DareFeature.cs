@@ -18,7 +18,7 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
 
     public string CommandName => "Dare";
     public string Description => "Start a 1v1 Jackpot game. Usage: /ecodare <amount>";
-    public IEnumerable<string> Aliases => new[] { "ecodare", "dare", "eco_dare_accept", "eco_dare_box" };
+    public IEnumerable<string> Aliases => new[] { "ecodare", "dare", "eco_dare_accept", "eco_dare_box", "eco_dare_lobby_timeout", "eco_dare_game_timeout" };
 
     public async Task<bool> ExecuteAsync(EconomyCommand cmd, UserAccount account)
     {

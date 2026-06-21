@@ -24,7 +24,14 @@ public class GameLogService(
 
                     var payload = JsonSerializer.Deserialize<JsonElement>(message.ToString());
                     
-                    var userId = payload.GetProperty("userId").GetInt64();
+                    long userId = 0;
+                    if (payload.TryGetProperty("userId", out var userIdProp))
+                    {
+                        if (userIdProp.ValueKind == JsonValueKind.String)
+                            long.TryParse(userIdProp.GetString(), out userId);
+                        else if (userIdProp.ValueKind == JsonValueKind.Number)
+                            userId = userIdProp.GetInt64();
+                    }
                     var name = payload.GetProperty("name").GetString() ?? "Unknown";
                     var game = payload.GetProperty("game").GetString();
                     var details = payload.GetProperty("details").GetString();
