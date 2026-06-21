@@ -24,7 +24,7 @@ public class BatmanFeature : FeatureBase, ICommandFeature
             return false;
         }
 
-        string url = await _gifService.GetGifUrlAsync("batman");
+        string? url = await _gifService.GetGifUrlAsync("batman");
 
         var dashMarkup = new TL.ReplyInlineMarkup { rows = new[] { GetBackToDashboardRow(cmd.UserId) } };
 

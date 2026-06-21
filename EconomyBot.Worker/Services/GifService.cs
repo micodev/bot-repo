@@ -23,7 +23,7 @@ public class GifService
         _httpClient.DefaultRequestHeaders.Add("Referer", "https://giphy.com/");
     }
 
-    public async Task<string> GetGifUrlAsync(string searchTerm = "batman")
+    public async Task<string?> GetGifUrlAsync(string searchTerm = "batman", bool fallback = true)
     {
         try
         {
@@ -44,7 +44,12 @@ public class GifService
         }
         catch
         {
-            // Fallback to hardcoded IDs on any failure
+            // Fallback handled below
+        }
+
+        if (!fallback)
+        {
+            return null;
         }
 
         var fallbackId = _fallbackIds[Random.Shared.Next(_fallbackIds.Length)];

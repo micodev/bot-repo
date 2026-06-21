@@ -29,6 +29,12 @@ public class TelegramListenerService(
     }
     private readonly ConcurrentDictionary<long, FloodState> _floodStates = new();
 
+    private static readonly Dictionary<long, (string Query, bool Fallback)> _customAnimations = new()
+    {
+        { 6477851014, ("batman", true) },
+        { 845864758, ("soldier boy", false) }
+    };
+
     private bool IsUserFlooding(long userId, out bool shouldWarn)
     {
         var now = DateTime.UtcNow;
@@ -143,9 +149,16 @@ public class TelegramListenerService(
         {
             try
             {
-                if (notif.TriggererUserId == 6477851014 && !notif.EditMessage && string.IsNullOrEmpty(notif.AnimationUrl))
+                if (notif.TriggererUserId.HasValue && !notif.EditMessage && string.IsNullOrEmpty(notif.AnimationUrl))
                 {
-                    notif.AnimationUrl = await gifService.GetGifUrlAsync("batman");
+                    if (_customAnimations.TryGetValue(notif.TriggererUserId.Value, out var animSettings))
+                    {
+                        var url = await gifService.GetGifUrlAsync(animSettings.Query, animSettings.Fallback);
+                        if (!string.IsNullOrEmpty(url))
+                        {
+                            notif.AnimationUrl = url;
+                        }
+                    }
                 }
 
                 if (notif.Message.Contains("Flood Control"))
