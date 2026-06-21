@@ -32,7 +32,7 @@ public class TelegramListenerService(
     private static readonly Dictionary<long, (string Query, bool Fallback)> _customAnimations = new()
     {
         { 6477851014, ("batman", true) },
-        { 845864758, ("soldier boy", false) }
+        { 845864758, ("soldier-boy-the-boys", false) }
     };
 
     private bool IsUserFlooding(long userId, out bool shouldWarn)
