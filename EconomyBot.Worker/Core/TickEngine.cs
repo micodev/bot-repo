@@ -40,11 +40,11 @@ public class TickEngine(
                     _lastCeremonyHour = tickStart.Hour;
                     try
                     {
-                        await ceremonyService.ProcessCeremoniesAsync(previousHour, stoppingToken);
+                        _ = Task.Run(() => ceremonyService.ProcessCeremoniesAsync(previousHour, stoppingToken));
                     }
                     catch (Exception ex)
                     {
-                        logger.LogError(ex, "Failed to process hourly ceremonies in TickEngine.");
+                        logger.LogError(ex, "Failed to start hourly ceremonies in TickEngine.");
                     }
                 }
 
