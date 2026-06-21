@@ -5,42 +5,20 @@ using System.Text;
 
 namespace EconomyBot.Worker.Services;
 
-public class CeremonyBackgroundService : BackgroundService
+public class CeremonyService
 {
     private readonly RedisService _redisService;
     private readonly NotificationQueue _notificationQueue;
-    private readonly ILogger<CeremonyBackgroundService> _logger;
+    private readonly ILogger<CeremonyService> _logger;
 
-    public CeremonyBackgroundService(RedisService redisService, NotificationQueue notificationQueue, ILogger<CeremonyBackgroundService> logger)
+    public CeremonyService(RedisService redisService, NotificationQueue notificationQueue, ILogger<CeremonyService> logger)
     {
         _redisService = redisService;
         _notificationQueue = notificationQueue;
         _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            var now = DateTime.UtcNow;
-            var nextHour = now.Date.AddHours(now.Hour + 1);
-            var delay = nextHour - now;
-
-            _logger.LogInformation("CeremonyBackgroundService waiting {Delay} until {NextHour}", delay, nextHour);
-            await Task.Delay(delay, stoppingToken);
-
-            try
-            {
-                await ProcessCeremoniesAsync(now, stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to process hourly ceremonies.");
-            }
-        }
-    }
-
-    private async Task ProcessCeremoniesAsync(DateTime hourFinished, CancellationToken ct)
+    public async Task ProcessCeremoniesAsync(DateTime hourFinished, CancellationToken ct = default)
     {
         var hourKey = hourFinished.ToString("yyyyMMddHH");
         var db = _redisService.GetDatabase();

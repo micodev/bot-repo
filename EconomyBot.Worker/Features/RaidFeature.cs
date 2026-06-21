@@ -18,7 +18,7 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
 
     public string CommandName => "Raid";
     public string Description => "Coordinate an attack on a target player to steal coins. Usage: /ecoraid @username or /ecobandit @username";
-    public IEnumerable<string> Aliases => new[] { "ecoraid", "raid", "ecobandit", "bandit", "eco_join_raid", "eco_cancel_raid" };
+    public IEnumerable<string> Aliases => new[] { "ecoraid", "raid", "ecobandit", "bandit", "eco_join_raid", "eco_cancel_raid", "eco_raid_timeout" };
 
     public async Task<bool> ExecuteAsync(EconomyCommand cmd, UserAccount account)
     {

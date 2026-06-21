@@ -13,13 +13,14 @@ public class TickEngine(
     JobService jobService,
     MarketService marketService,
     RentService rentService,
+    CeremonyService ceremonyService,
     NotificationQueue notificationQueue,
     IOptions<EconomyOptions> economyOptions,
     IEnumerable<ICommandFeature> features) : BackgroundService
 {
     private readonly EconomyOptions _opts = economyOptions.Value;
-
-
+    private int _lastCeremonyHour = DateTime.UtcNow.Hour;
+    private DateTime _lastLobbyCheck = DateTime.UtcNow;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -30,6 +31,26 @@ public class TickEngine(
             var tickStart = DateTime.UtcNow;
 
             await marketService.AdvanceMarketIfReadyAsync();
+
+            if (tickStart.Hour != _lastCeremonyHour)
+            {
+                var previousHour = tickStart.AddHours(-1);
+                _lastCeremonyHour = tickStart.Hour;
+                try
+                {
+                    await ceremonyService.ProcessCeremoniesAsync(previousHour, stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to process hourly ceremonies in TickEngine.");
+                }
+            }
+
+            if ((tickStart - _lastLobbyCheck).TotalSeconds >= 5)
+            {
+                _lastLobbyCheck = tickStart;
+                await CheckExpiredRaidLobbiesAsync();
+            }
 
             var commandsToProcess = new List<EconomyCommand>();
             while (commandQueue.TryDequeue(out var cmd))
@@ -152,6 +173,46 @@ public class TickEngine(
         {
             await redisService.SaveAccountAsync(account);
             await postgresService.UpsertAccountAsync(account);
+        }
+    }
+
+    private async Task CheckExpiredRaidLobbiesAsync()
+    {
+        try
+        {
+            var db = redisService.GetDatabase();
+            var endpoint = db.Multiplexer.GetEndPoints().FirstOrDefault();
+            if (endpoint == null) return;
+            
+            var server = db.Multiplexer.GetServer(endpoint);
+            foreach (var key in server.Keys(pattern: "raid_lobby:*"))
+            {
+                var val = await db.StringGetAsync(key);
+                if (val.IsNullOrEmpty) continue;
+
+                var lobby = System.Text.Json.JsonSerializer.Deserialize<Models.RaidLobby>(val.ToString());
+                if (lobby != null && lobby.ExpiresAt < DateTime.UtcNow)
+                {
+                    // Enqueue the timeout command
+                    var timeoutCmd = new EconomyCommand
+                    {
+                        CommandType = "eco_raid_timeout",
+                        IsCallback = true,
+                        UserId = lobby.InitiatorId,
+                        ChatId = lobby.ChatId,
+                        TopicId = lobby.TopicId,
+                        Args = new[] { lobby.TargetId.ToString(), "Unknown User" }
+                    };
+                    await commandQueue.EnqueueAsync(timeoutCmd);
+                    
+                    // We delete the key here so we don't enqueue it multiple times
+                    await db.KeyDeleteAsync(key);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error checking expired raid lobbies.");
         }
     }
 }
