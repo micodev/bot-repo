@@ -130,12 +130,8 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
         return true;
     }
 
-    private async Task HandleLobbyTimeoutAsync(EconomyCommand cmd, string dareId, string userName, StackExchange.Redis.IDatabase db)
+    private async Task HandleLobbyTimeoutAsync(EconomyCommand cmd, string dareId, string userName, DareLobby l, StackExchange.Redis.IDatabase db)
     {
-        var lJson = await db.StringGetAsync($"dare_lobby:{dareId}");
-        if (lJson.IsNullOrEmpty) return;
-
-        var l = JsonSerializer.Deserialize<DareLobby>(lJson.ToString());
         if (l != null && l.ChallengerId == null) // No one joined
         {
             await db.KeyDeleteAsync($"dare_lobby:{dareId}");
@@ -168,14 +164,32 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
         var action = parts[0];
         var dareId = parts.Length > 1 ? parts[1] : "";
 
-        var val = await db.StringGetAsync($"dare_lobby:{dareId}");
-        if (val.IsNullOrEmpty)
+        string lJson = "";
+        bool isTimeoutWithJson = false;
+
+        if (action == "eco_dare_lobby_timeout" && parts.Length > 3 && parts[3].StartsWith("{"))
         {
-            await Reply(cmd, "❌ This dare has expired or does not exist.");
-            return true;
+            lJson = parts[3];
+            isTimeoutWithJson = true;
+        }
+        else if (action == "eco_dare_game_timeout" && parts.Length > 4 && parts[4].StartsWith("{"))
+        {
+            lJson = parts[4];
+            isTimeoutWithJson = true;
         }
 
-        var lobby = JsonSerializer.Deserialize<DareLobby>(val.ToString());
+        if (!isTimeoutWithJson)
+        {
+            var val = await db.StringGetAsync($"dare_lobby:{dareId}");
+            if (val.IsNullOrEmpty)
+            {
+                await Reply(cmd, "❌ This dare has expired or does not exist.");
+                return true;
+            }
+            lJson = val.ToString();
+        }
+
+        var lobby = JsonSerializer.Deserialize<DareLobby>(lJson);
         if (lobby == null) return true;
 
         if (action == "eco_dare_accept")
@@ -191,14 +205,14 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
         }
         else if (action == "eco_dare_lobby_timeout")
         {
-            await HandleLobbyTimeoutAsync(cmd, dareId, parts.Length > 2 ? parts[2] : "Unknown User", db);
+            await HandleLobbyTimeoutAsync(cmd, dareId, parts.Length > 2 ? parts[2] : "Unknown User", lobby, db);
             return true;
         }
         else if (action == "eco_dare_game_timeout")
         {
             string initName = parts.Length > 2 ? parts[2] : "Player 1";
             string chalName = parts.Length > 3 ? parts[3] : "Player 2";
-            await HandleDareTimeoutAsync(cmd, dareId, initName, chalName, db);
+            await HandleDareTimeoutAsync(cmd, dareId, initName, chalName, lobby, db);
             return true;
         }
 
@@ -420,12 +434,8 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
 
     private string GetBoxEmoji(int choice, int jackpot) => choice == jackpot ? "💎 (Jackpot)" : "💀 (Bust)";
 
-    private async Task HandleDareTimeoutAsync(EconomyCommand cmd, string dareId, string initiatorName, string challengerName, StackExchange.Redis.IDatabase db)
+    private async Task HandleDareTimeoutAsync(EconomyCommand cmd, string dareId, string initiatorName, string challengerName, DareLobby lobby, StackExchange.Redis.IDatabase db)
     {
-        var val = await db.StringGetAsync($"dare_lobby:{dareId}");
-        if (val.IsNullOrEmpty) return;
-
-        var lobby = JsonSerializer.Deserialize<DareLobby>(val.ToString());
         if (lobby == null) return;
         if (lobby.InitiatorChoice.HasValue && lobby.ChallengerChoice.HasValue) return;
 

@@ -317,14 +317,27 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
         var action = parts[0];
         if (parts.Length < 2 || !long.TryParse(parts[1], out long targetId)) return true;
 
-        var lobbyStr = await db.StringGetAsync($"raid_lobby:{targetId}");
-        if (lobbyStr.IsNullOrEmpty)
+        string lJson = "";
+        bool isTimeoutWithJson = false;
+
+        if (action == "eco_raid_timeout" && parts.Length > 3 && parts.Last().StartsWith("{"))
         {
-            await Reply(cmd, "❌ This raid lobby has expired or does not exist.");
-            return true;
+            lJson = parts.Last();
+            isTimeoutWithJson = true;
         }
 
-        var lobby = JsonSerializer.Deserialize<RaidLobby>(lobbyStr.ToString());
+        if (!isTimeoutWithJson)
+        {
+            var lobbyStr = await db.StringGetAsync($"raid_lobby:{targetId}");
+            if (lobbyStr.IsNullOrEmpty)
+            {
+                await Reply(cmd, "❌ This raid lobby has expired or does not exist.");
+                return true;
+            }
+            lJson = lobbyStr.ToString();
+        }
+
+        var lobby = JsonSerializer.Deserialize<RaidLobby>(lJson);
         if (lobby == null) return true;
 
         if (action == "eco_join_raid")
@@ -337,7 +350,12 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
         }
         else if (action == "eco_raid_timeout")
         {
-            await HandleLobbyTimeoutAsync(cmd, targetId, parts.Length > 2 ? string.Join(" ", parts.Skip(2)) : "Unknown User", db);
+            string targetName = "Unknown User";
+            if (parts.Length > 2)
+            {
+                targetName = isTimeoutWithJson ? string.Join(" ", parts.Skip(2).Take(parts.Length - 3)) : string.Join(" ", parts.Skip(2));
+            }
+            await HandleLobbyTimeoutAsync(cmd, targetId, targetName, lobby, db);
             return true;
         }
 
@@ -654,12 +672,8 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
         await db.StringSetAsync($"raid_lobby:{lobby.TargetId}", json, TimeSpan.FromMinutes(5));
     }
 
-    private async Task HandleLobbyTimeoutAsync(EconomyCommand cmd, long targetId, string targetName, StackExchange.Redis.IDatabase db)
+    private async Task HandleLobbyTimeoutAsync(EconomyCommand cmd, long targetId, string targetName, RaidLobby lobby, StackExchange.Redis.IDatabase db)
     {
-        var val = await db.StringGetAsync($"raid_lobby:{targetId}");
-        if (val.IsNullOrEmpty) return;
-
-        var lobby = JsonSerializer.Deserialize<RaidLobby>(val.ToString());
         if (lobby == null) return;
 
         // If the lobby still exists, it means it expired before filling

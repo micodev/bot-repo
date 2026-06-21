@@ -227,7 +227,7 @@ public class TickEngine(
                         UserId = lobby.InitiatorId,
                         ChatId = lobby.ChatId,
                         TopicId = lobby.TopicId,
-                        Args = new[] { lobby.TargetId.ToString(), "Unknown User" }
+                        Args = new[] { lobby.TargetId.ToString(), "Unknown User", val.ToString() }
                     };
                     await commandQueue.EnqueueAsync(timeoutCmd);
                     
@@ -242,13 +242,41 @@ public class TickEngine(
                 if (val.IsNullOrEmpty) continue;
 
                 var lobby = System.Text.Json.JsonSerializer.Deserialize<Models.DareLobby>(val.ToString());
-                if (lobby != null && lobby.CreatedAtUtc.AddMinutes(5) < DateTime.UtcNow)
+                if (lobby != null)
                 {
-                    await db.KeyDeleteAsync(key);
-                    await db.KeyDeleteAsync($"user_in_dare:{lobby.InitiatorId}");
-                    if (lobby.ChallengerId.HasValue)
+                    if (!lobby.ChallengerId.HasValue)
                     {
-                        await db.KeyDeleteAsync($"user_in_dare:{lobby.ChallengerId.Value}");
+                        if (lobby.CreatedAtUtc.AddMinutes(1) < DateTime.UtcNow)
+                        {
+                            var timeoutCmd = new EconomyCommand
+                            {
+                                CommandType = "eco_dare_lobby_timeout",
+                                IsCallback = true,
+                                UserId = lobby.InitiatorId,
+                                ChatId = lobby.ChatId,
+                                TopicId = lobby.TopicId,
+                                Args = new[] { lobby.DareId, "Unknown User", val.ToString() }
+                            };
+                            await commandQueue.EnqueueAsync(timeoutCmd);
+                            await db.KeyDeleteAsync(key);
+                        }
+                    }
+                    else if (!lobby.InitiatorChoice.HasValue || !lobby.ChallengerChoice.HasValue)
+                    {
+                        if (lobby.CreatedAtUtc.AddMinutes(2) < DateTime.UtcNow)
+                        {
+                            var timeoutCmd = new EconomyCommand
+                            {
+                                CommandType = "eco_dare_game_timeout",
+                                IsCallback = true,
+                                UserId = lobby.InitiatorId,
+                                ChatId = lobby.ChatId,
+                                TopicId = lobby.TopicId,
+                                Args = new[] { lobby.DareId, "Player 1", "Player 2", val.ToString() }
+                            };
+                            await commandQueue.EnqueueAsync(timeoutCmd);
+                            await db.KeyDeleteAsync(key);
+                        }
                     }
                 }
             }
