@@ -153,7 +153,16 @@ public class TelegramListenerService(
                     Console.WriteLine($"[ProcessOutgoingNotifications] Dequeued Flood Control notif! Peer null? {notif.Peer == null}");
                 }
 
-                if (notif.Peer is InputPeer peer)
+                InputPeer? peer = notif.Peer as InputPeer;
+                if (peer == null && _manager != null)
+                {
+                    if (_manager.Chats.TryGetValue(notif.ChatId, out var chat))
+                        peer = chat.ToInputPeer();
+                    else if (_manager.Users.TryGetValue(notif.ChatId, out var user))
+                        peer = user.ToInputPeer();
+                }
+
+                if (peer != null)
                 {
                     // If this is a pure callback answer (e.g. error toast) with no message body to edit/send
                     if (notif.CallbackQueryId.HasValue && string.IsNullOrEmpty(notif.Message) && !string.IsNullOrEmpty(notif.CallbackAnswer))
