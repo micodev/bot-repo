@@ -31,7 +31,18 @@ public class RedisService
     {
         var data = await _db.StringGetAsync($"eco:acc:{userId}");
         if (data.IsNullOrEmpty) return null;
-        return JsonSerializer.Deserialize<UserAccount>(data.ToString(), _jsonOptions);
+        
+        try
+        {
+            return JsonSerializer.Deserialize<UserAccount>(data.ToString(), _jsonOptions);
+        }
+        catch (JsonException)
+        {
+            // If the cache is corrupted (e.g. invalid types), delete it and return null
+            // so it can be freshly loaded from Postgres.
+            await _db.KeyDeleteAsync($"eco:acc:{userId}");
+            return null;
+        }
     }
 
     public async Task<List<UserAccount>> GetAllAccountsAsync()
@@ -43,8 +54,16 @@ public class RedisService
             var data = await _db.StringGetAsync(key);
             if (!data.IsNullOrEmpty)
             {
-                var acc = JsonSerializer.Deserialize<UserAccount>(data.ToString(), _jsonOptions);
-                if (acc != null) accounts.Add(acc);
+                try
+                {
+                    var acc = JsonSerializer.Deserialize<UserAccount>(data.ToString(), _jsonOptions);
+                    if (acc != null) accounts.Add(acc);
+                }
+                catch (JsonException)
+                {
+                    // Ignore corrupted cache entries
+                    await _db.KeyDeleteAsync(key);
+                }
             }
         }
         return accounts;
@@ -99,7 +118,16 @@ public class RedisService
     {
         var data = await _db.StringGetAsync($"eco:user:{userId}");
         if (data.IsNullOrEmpty) return null;
-        return JsonSerializer.Deserialize<PeerUser>(data.ToString());
+        
+        try
+        {
+            return JsonSerializer.Deserialize<PeerUser>(data.ToString(), _jsonOptions);
+        }
+        catch (JsonException)
+        {
+            await _db.KeyDeleteAsync($"eco:user:{userId}");
+            return null;
+        }
     }
 
     public async Task<PeerUser?> GetUserByUsernameAsync(string username)
