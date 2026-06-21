@@ -28,16 +28,8 @@ public class RicoAiService
         Console.WriteLine($"result: {result}");
         Console.WriteLine($"fallbackResponse: {fallbackResponse}");
         Console.WriteLine($"maxTokens: {maxTokens}");
-        int choice = Random.Shared.Next(2); // 0 = Cerebras, 1 = Groq
-        switch (choice)
-        {
-            case 0:
-                _logger.LogInformation("Selected Cerebras API.");
-                return await FlavorResponseCerebrasAsync(command, result, fallbackResponse, maxTokens, promptAddendum, overridePersonality);
-            default:
-                _logger.LogInformation("Selected Groq API.");
-                return await FlavorResponseOpenAIFormatAsync("https://api.groq.com/openai/v1/chat/completions", _groqApiKey, "llama-3.1-8b-instant", "Groq", command, result, fallbackResponse, maxTokens, promptAddendum, overridePersonality);
-        }
+        _logger.LogInformation("Selected Groq API.");
+        return await FlavorResponseOpenAIFormatAsync("https://api.groq.com/openai/v1/chat/completions", _groqApiKey, "llama-3.1-8b-instant", "Groq", command, result, fallbackResponse, maxTokens, promptAddendum, overridePersonality);
     }
 
     public async Task<string> FlavorResponseGroqOnlyAsync(string command, object result, string fallbackResponse, int maxTokens = 300, string? promptAddendum = null, string? overridePersonality = null)
