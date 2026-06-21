@@ -154,8 +154,8 @@ public class CeremonyFeature(RedisService redisService, IOptions<EconomyOptions>
         var defaultMsg = $"👑 Your tribute of **${FormatNumber(tributeAmount)}** has been accepted!\nThe Royal Ceremony will commence in {_opts.CeremonyDurationMinutes} minutes! If anyone else donates, the timer will reset.";
 
         var personality = timerExists 
-            ? $"You are a loyal royal soldier serving the Empress. A peasant just added another tribute for the upcoming ceremony honoring the Empress. Arrogantly accept it on her behalf and demand that the ceremony timer is restarted from scratch to make them wait longer! Tell them the ceremony is delayed by another {_opts.CeremonyDurationMinutes} minutes. Use plenty of emojis."
-            : $"You are a loyal royal soldier serving the Empress. A peasant just offered a tribute for the upcoming ceremony honoring the Empress. Accept it arrogantly on her behalf. Remind them that the ceremony begins in {_opts.CeremonyDurationMinutes} minutes, but if any other peasant donates, the timer resets and they must wait longer! Be dramatic and royal. Use plenty of emojis.";
+            ? $"You are a loyal royal soldier serving the Empress. A peasant just added another tribute. The Empress does not need their money, but she accepts their humble appreciation! Arrogantly announce that because of this new tribute, the grand preparations must be extended, making everyone wait longer! Tell them the ceremony is delayed by another {_opts.CeremonyDurationMinutes} minutes. Use plenty of emojis."
+            : $"You are a loyal royal soldier serving the Empress. A peasant just offered a tribute. The Empress does not need their money, but she graciously accepts their humble appreciation! Remind them that the ceremony begins in {_opts.CeremonyDurationMinutes} minutes, but if anyone else donates, the preparations are extended and the timer resets! Be dramatic and royal. Use plenty of emojis.";
 
         var flavorText = await aiService.FlavorResponseAsync(
             $"User {cmd.UserName} donated.",
