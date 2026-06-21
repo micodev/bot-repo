@@ -119,7 +119,12 @@ public class UserAccount
 
     // Optional navigation properties for convenience in memory
     public CardType? CardType { get; set; }
-    public int MaxInventoryCapacity { get; set; } = 60;
+    private int _maxInventoryCapacity = 60;
+    public int MaxInventoryCapacity 
+    { 
+        get => _maxInventoryCapacity <= 0 ? 60 : _maxInventoryCapacity; 
+        set => _maxInventoryCapacity = value <= 0 ? 60 : value; 
+    }
     public List<AccountItem> Inventory { get; set; } = new();
 
     public static string GenerateAccountNumber()
