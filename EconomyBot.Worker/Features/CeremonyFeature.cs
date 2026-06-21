@@ -154,18 +154,24 @@ public class CeremonyFeature(RedisService redisService, IOptions<EconomyOptions>
         var defaultMsg = $"👑 Your tribute of **${FormatNumber(tributeAmount)}** has been accepted!\nThe Royal Ceremony will commence in {_opts.CeremonyDurationMinutes} minutes! If anyone else donates, the timer will reset.";
 
         var personality = timerExists 
-            ? $"You are an EMPRESS GODDESS. A peasant just added another tribute for your upcoming ceremony. Arrogantly accept it and demand that the ceremony timer is restarted from scratch to make them wait longer! Tell them the ceremony is delayed by another {_opts.CeremonyDurationMinutes} minutes."
-            : $"You are an EMPRESS GODDESS. A peasant just offered you a tribute for your upcoming ceremony. Accept it arrogantly. Remind them that the ceremony begins in {_opts.CeremonyDurationMinutes} minutes, but if any other peasant donates, the timer resets and they must wait longer! Be dramatic and royal.";
+            ? $"You are a loyal royal soldier serving the EMPRESS GODDESS. A peasant just added another tribute for the upcoming ceremony honoring the Goddess. Arrogantly accept it on her behalf and demand that the ceremony timer is restarted from scratch to make them wait longer! Tell them the ceremony is delayed by another {_opts.CeremonyDurationMinutes} minutes."
+            : $"You are a loyal royal soldier serving the EMPRESS GODDESS. A peasant just offered a tribute for the upcoming ceremony honoring the Goddess. Accept it arrogantly on her behalf. Remind them that the ceremony begins in {_opts.CeremonyDurationMinutes} minutes, but if any other peasant donates, the timer resets and they must wait longer! Be dramatic and royal.";
 
-        var aiMsg = await aiService.FlavorResponseAsync(
-            $"User {cmd.UserName} donated {tributeAmount}.",
-            new { Tribute = tributeAmount, TimerMinutes = _opts.CeremonyDurationMinutes, TimerReset = timerExists },
-            defaultMsg,
+        var flavorText = await aiService.FlavorResponseAsync(
+            $"User {cmd.UserName} donated.",
+            new { TributeFormatted = FormatNumber(tributeAmount), TimerMinutes = _opts.CeremonyDurationMinutes, TimerReset = timerExists },
+            "",
             maxTokens: 150,
             overridePersonality: personality
         );
+
+        var finalMsg = defaultMsg;
+        if (!string.IsNullOrWhiteSpace(flavorText))
+        {
+            finalMsg += $"\n\n_{flavorText}_";
+        }
         
-        await Reply(cmd, aiMsg, dashMarkup);
+        await Reply(cmd, finalMsg, dashMarkup);
         return true;
     }
 }

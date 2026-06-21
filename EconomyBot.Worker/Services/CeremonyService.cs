@@ -37,7 +37,7 @@ public class CeremonyService
                     new { },
                     "Silence in the chat! Stop sending messages for a minute! The Royal Ceremony is starting.",
                     maxTokens: 100,
-                    overridePersonality: "You are an EMPRESS GODDESS. Demand absolute silence in the chat because your royal ceremony is about to begin. Be dramatic, arrogant, and highly demanding. Warn them that sending messages is forbidden right now."
+                    overridePersonality: "You are a loyal royal soldier serving the EMPRESS GODDESS. Demand absolute silence in the chat because the royal ceremony honoring the Goddess is about to begin. Be dramatic, arrogant, and highly demanding. Warn them that sending messages is forbidden right now."
                 );
 
                 await _notificationQueue.EnqueueAsync(new OutgoingNotification
@@ -73,7 +73,7 @@ public class CeremonyService
                     new { TributesCount = topTributers.Length },
                     "The Queen accepts the tributes from the loyal citizens. You may now bow and return to your fields. 🥂🎉🍾",
                     maxTokens: 150,
-                    overridePersonality: "You are an EMPRESS GODDESS. The royal ceremony in your honor has just concluded. Address your loyal subjects, accept their tributes, and dramatically dismiss them to return to their peasant lives. Be extremely arrogant, royal, and hilarious."
+                    overridePersonality: "You are a loyal royal soldier serving the EMPRESS GODDESS. The royal ceremony honoring her has just concluded. Address her loyal subjects, announce that the Goddess accepts their tributes, and dramatically dismiss them to return to their peasant lives. Be extremely arrogant, royal, and hilarious."
                 );
 
                 var sb = new StringBuilder();
