@@ -685,8 +685,9 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
             ChatId = lobby.ChatId,
             TopicId = lobby.TopicId,
             Peer = cmd.Peer,
+            ReplyToMsgId = lobby.MessageId,
+            DeleteMessage = true,
             Message = expMsg,
-            // EditMessage = true could be used if we had the callback context, but here we just send a new message
         };
         await _notificationQueue.EnqueueAsync(notification);
     }

@@ -201,7 +201,17 @@ public class TelegramListenerService(
                         entities = entities.OrderBy(e => e.offset).ThenByDescending(e => e.length).ToArray();
                     }
 
-                    if (notif.EditMessage && notif.ReplyToMsgId > 0)
+                    if (notif.DeleteMessage && notif.ReplyToMsgId > 0)
+                    {
+                        await _client!.Messages_DeleteMessages(new[] { notif.ReplyToMsgId }, revoke: true);
+                        replyTo = null;
+                        if (notif.TopicId.HasValue && notif.TopicId.Value > 0)
+                        {
+                            replyTo = new InputReplyToMessage { reply_to_msg_id = notif.TopicId.Value };
+                        }
+                    }
+
+                    if (notif.EditMessage && notif.ReplyToMsgId > 0 && !notif.DeleteMessage)
                     {
                         if (notif.TriggererUserId.HasValue)
                         {

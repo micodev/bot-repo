@@ -155,6 +155,7 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
                 TopicId = cmd.TopicId,
                 Peer = cmd.Peer,
                 ReplyToMsgId = l.MessageId,
+                DeleteMessage = true,
                 Message = fallbackReply
             };
             await _notificationQueue.EnqueueAsync(notification);
@@ -474,6 +475,7 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
             TopicId = cmd.TopicId,
             Peer = cmd.Peer,
             ReplyToMsgId = lobby.MessageId,
+            DeleteMessage = true,
             Message = sb.ToString()
         };
         await _notificationQueue.EnqueueAsync(notification);

@@ -14,6 +14,7 @@ public class OutgoingNotification
     public string? AnimationUrl { get; set; }
     public (string label, TL.InputMessageEntityMentionName? entity)[]? Mentions { get; set; }
     public bool EditMessage { get; set; }
+    public bool DeleteMessage { get; set; }
     public Action<int>? OnMessageSent { get; set; }
     public long? CallbackQueryId { get; set; }
     public string? CallbackAnswer { get; set; }
