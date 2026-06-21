@@ -14,7 +14,7 @@ public class GifService
         "5uDNFrOi6VwrkFKBaj","y4G4trcBoUgWk","f1CQcSSJYEBkQ","qEiisWIbM6hWEu79ut"
     };
 
-    private static readonly Regex _giphyRegex = new Regex(@"media\.giphy\.com/media/([A-Za-z0-9]+)/giphy\.gif", RegexOptions.Compiled);
+    private static readonly Regex _giphyRegex = new Regex(@"https?://media[0-9]*\.giphy\.com/media/(?:v1\.[^/]+/)?([A-Za-z0-9]+)/(?:giphy\.gif|[0-9]+w\.gif)", RegexOptions.Compiled);
 
     public GifService()
     {
@@ -27,8 +27,8 @@ public class GifService
     {
         try
         {
-            var urlSearch = Uri.EscapeDataString(searchTerm);
-            var response = await _httpClient.GetStringAsync($"https://giphy.com/explore/{urlSearch}");
+            var urlSearch = Regex.Replace(searchTerm.Trim(), @"\s+", "-");
+            var response = await _httpClient.GetStringAsync($"https://giphy.com/search/{urlSearch}");
             var matches = _giphyRegex.Matches(response);
             
             var ids = matches.Select(m => m.Groups[1].Value)
