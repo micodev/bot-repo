@@ -28,60 +28,65 @@ public class TickEngine(
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            var tickStart = DateTime.UtcNow;
-
-            await marketService.AdvanceMarketIfReadyAsync();
-
-            if (tickStart.Hour != _lastCeremonyHour)
+            try
             {
-                var previousHour = tickStart.AddHours(-1);
-                _lastCeremonyHour = tickStart.Hour;
-                try
+                var tickStart = DateTime.UtcNow;
+
+                await marketService.AdvanceMarketIfReadyAsync();
+
+                if (tickStart.Hour != _lastCeremonyHour)
                 {
-                    await ceremonyService.ProcessCeremoniesAsync(previousHour, stoppingToken);
+                    var previousHour = tickStart.AddHours(-1);
+                    _lastCeremonyHour = tickStart.Hour;
+                    try
+                    {
+                        await ceremonyService.ProcessCeremoniesAsync(previousHour, stoppingToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Failed to process hourly ceremonies in TickEngine.");
+                    }
                 }
-                catch (Exception ex)
+
+                if ((tickStart - _lastLobbyCheck).TotalSeconds >= 5)
                 {
-                    logger.LogError(ex, "Failed to process hourly ceremonies in TickEngine.");
+                    _lastLobbyCheck = tickStart;
+                    await CheckExpiredLobbiesAsync();
                 }
-            }
 
-            if ((tickStart - _lastLobbyCheck).TotalSeconds >= 5)
-            {
-                _lastLobbyCheck = tickStart;
-                await CheckExpiredRaidLobbiesAsync();
-            }
-
-            var commandsToProcess = new List<EconomyCommand>();
-            while (commandQueue.TryDequeue(out var cmd))
-            {
-                if (cmd != null) commandsToProcess.Add(cmd);
-            }
-
-            if (commandsToProcess.Count > 0)
-            {
-                var grouped = commandsToProcess.GroupBy(c => c.UserId);
-                
-                foreach (var group in grouped)
+                var commandsToProcess = new List<EconomyCommand>();
+                while (commandQueue.TryDequeue(out var cmd))
                 {
-                    await ProcessUserCommandsAsync(group.Key, group);
+                    if (cmd != null) commandsToProcess.Add(cmd);
                 }
-                
-                Console.WriteLine($"\x1b[1;32m[TickEngine]\x1b[0m Processed \x1b[1;36m{commandsToProcess.Count}\x1b[0m commands in tick.");
+
+                if (commandsToProcess.Count > 0)
+                {
+                    var grouped = commandsToProcess.GroupBy(c => c.UserId);
+                    
+                    foreach (var group in grouped)
+                    {
+                        await ProcessUserCommandsAsync(group.Key, group);
+                    }
+                    
+                    Console.WriteLine($"\x1b[1;32m[TickEngine]\x1b[0m Processed \x1b[1;36m{commandsToProcess.Count}\x1b[0m commands in tick.");
+                }
+
+                var elapsed = DateTime.UtcNow - tickStart;
+                var delay = TimeSpan.FromMilliseconds(_opts.TickIntervalMs) - elapsed;
+                if (delay > TimeSpan.Zero)
+                {
+                    await Task.Delay(delay, stoppingToken);
+                }
+                else if (elapsed.TotalMilliseconds > _opts.TickIntervalMs * 2)
+                {
+                    logger.LogWarning($"Tick overrun! Elapsed: {elapsed.TotalMilliseconds}ms");
+                }
             }
-
-
-
-
-            var elapsed = DateTime.UtcNow - tickStart;
-            var delay = TimeSpan.FromMilliseconds(_opts.TickIntervalMs) - elapsed;
-            if (delay > TimeSpan.Zero)
+            catch (Exception ex)
             {
-                await Task.Delay(delay, stoppingToken);
-            }
-            else if (elapsed.TotalMilliseconds > _opts.TickIntervalMs * 2)
-            {
-                logger.LogWarning($"Tick overrun! Elapsed: {elapsed.TotalMilliseconds}ms");
+                logger.LogError(ex, "TickEngine encountered a fatal error during tick, recovering...");
+                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken); // Small backoff
             }
         }
     }
@@ -176,7 +181,7 @@ public class TickEngine(
         }
     }
 
-    private async Task CheckExpiredRaidLobbiesAsync()
+    private async Task CheckExpiredLobbiesAsync()
     {
         try
         {
@@ -209,10 +214,27 @@ public class TickEngine(
                     await db.KeyDeleteAsync(key);
                 }
             }
+
+            foreach (var key in server.Keys(pattern: "dare_lobby:*"))
+            {
+                var val = await db.StringGetAsync(key);
+                if (val.IsNullOrEmpty) continue;
+
+                var lobby = System.Text.Json.JsonSerializer.Deserialize<Models.DareLobby>(val.ToString());
+                if (lobby != null && lobby.CreatedAtUtc.AddMinutes(5) < DateTime.UtcNow)
+                {
+                    await db.KeyDeleteAsync(key);
+                    await db.KeyDeleteAsync($"user_in_dare:{lobby.InitiatorId}");
+                    if (lobby.ChallengerId.HasValue)
+                    {
+                        await db.KeyDeleteAsync($"user_in_dare:{lobby.ChallengerId.Value}");
+                    }
+                }
+            }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error checking expired raid lobbies.");
+            logger.LogError(ex, "Error checking expired lobbies.");
         }
     }
 }

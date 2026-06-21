@@ -313,7 +313,7 @@ public class TelegramListenerService(
 
         // ── Enforce locked topic ──
         var lockedTopicId = await redisService.GetLockedTopicAsync(msg.peer_id.ID);
-        bool isLockCommand = cmdName == "/locktopic" || cmdName == "/unlocktopic" || cmdName == "/stop" || cmdName == "/start";
+        bool isLockCommand = cmdName == "/locktopic" || cmdName == "/unlocktopic" || cmdName == "/stop" || cmdName == "/start" || cmdName == "/gamelogs";
 
         if (!isLockCommand && lockedTopicId.HasValue)
         {
@@ -370,7 +370,7 @@ public class TelegramListenerService(
         var peer = _manager?.UserOrChat(msg.peer_id)?.ToInputPeer();
 
         // ── Topic Locking & Admin Checks ──
-        if (cmdName == "/locktopic" || cmdName == "/unlocktopic" || cmdName == "/stop" || cmdName == "/start")
+        if (cmdName == "/locktopic" || cmdName == "/unlocktopic" || cmdName == "/stop" || cmdName == "/start" || cmdName == "/gamelogs")
         {
             if (msg.peer_id is TL.PeerChannel)
             {
@@ -408,7 +408,25 @@ public class TelegramListenerService(
 
                     if (isAdmin)
                     {
-                        if (cmdName == "/locktopic" && topicId.HasValue)
+                        if (cmdName == "/gamelogs" && topicId.HasValue)
+                        {
+                            var currentlyEnabled = await redisService.IsGameLogsEnabledAsync(msg.peer_id.ID);
+                            await redisService.SetGameLogsEnabledAsync(msg.peer_id.ID, !currentlyEnabled);
+                            await _client.Messages_SendMessage(
+                                peer: peer!,
+                                message: !currentlyEnabled ? "✅ Game logs **enabled** for this topic." : "❌ Game logs **disabled**.",
+                                reply_to: new InputReplyToMessage { reply_to_msg_id = msg.id },
+                                random_id: WTelegram.Helpers.RandomLong());
+                        }
+                        else if (cmdName == "/gamelogs" && !topicId.HasValue)
+                        {
+                            await _client.Messages_SendMessage(
+                                peer: peer!,
+                                message: "⚠️ You must use this command inside a topic/thread to toggle game logs.",
+                                reply_to: new InputReplyToMessage { reply_to_msg_id = msg.id },
+                                random_id: WTelegram.Helpers.RandomLong());
+                        }
+                        else if (cmdName == "/locktopic" && topicId.HasValue)
                         {
                             await redisService.SetLockedTopicAsync(msg.peer_id.ID, (int)topicId.Value);
                             await _client.Messages_SendMessage(

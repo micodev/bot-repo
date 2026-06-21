@@ -24,6 +24,7 @@ public class RedisService
     }
 
     public IDatabase GetDatabase() => _db;
+    public ISubscriber GetSubscriber() => _redis.GetSubscriber();
 
     public async Task<UserAccount?> GetAccountAsync(long userId)
     {
@@ -155,6 +156,41 @@ public class RedisService
         if (val.HasValue && int.TryParse(val.ToString(), out int topicId))
             return topicId;
         return null;
+    }
+
+    public async Task SetGameLogsEnabledAsync(long chatId, bool enabled)
+    {
+        if (enabled)
+            await _db.StringSetAsync($"eco:game_logs_enabled:{chatId}", "1");
+        else
+            await _db.KeyDeleteAsync($"eco:game_logs_enabled:{chatId}");
+    }
+
+    public async Task<bool> IsGameLogsEnabledAsync(long chatId)
+    {
+        return await _db.KeyExistsAsync($"eco:game_logs_enabled:{chatId}");
+    }
+
+    public async Task<List<(long chatId, int topicId)>> GetAllGameLogTargetsAsync()
+    {
+        var targets = new List<(long chatId, int topicId)>();
+        var server = _redis.GetServer(_redis.GetEndPoints().First());
+        
+        foreach (var key in server.Keys(pattern: "eco:game_logs_enabled:*"))
+        {
+            var keyStr = key.ToString();
+            var parts = keyStr.Split(':');
+            if (parts.Length == 3 && long.TryParse(parts[2], out long chatId))
+            {
+                var topicId = await GetLockedTopicAsync(chatId);
+                if (topicId.HasValue)
+                {
+                    targets.Add((chatId, topicId.Value));
+                }
+            }
+        }
+        
+        return targets;
     }
 
     public async Task SetStringAsync(string key, string value, TimeSpan? expiry = null)
