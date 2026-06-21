@@ -19,7 +19,6 @@ public class TickEngine(
     IEnumerable<ICommandFeature> features) : BackgroundService
 {
     private readonly EconomyOptions _opts = economyOptions.Value;
-    private int _lastCeremonyHour = DateTime.UtcNow.Hour;
     private DateTime _lastLobbyCheck = DateTime.UtcNow;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -34,24 +33,12 @@ public class TickEngine(
 
                 await marketService.AdvanceMarketIfReadyAsync();
 
-                if (tickStart.Hour != _lastCeremonyHour)
-                {
-                    var previousHour = tickStart.AddHours(-1);
-                    _lastCeremonyHour = tickStart.Hour;
-                    try
-                    {
-                        _ = Task.Run(() => ceremonyService.ProcessCeremoniesAsync(previousHour, stoppingToken));
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Failed to start hourly ceremonies in TickEngine.");
-                    }
-                }
 
                 if ((tickStart - _lastLobbyCheck).TotalSeconds >= 5)
                 {
                     _lastLobbyCheck = tickStart;
                     await CheckExpiredLobbiesAsync();
+                    await CheckExpiredCeremoniesAsync(stoppingToken);
                 }
 
                 var commandsToProcess = new List<EconomyCommand>();
@@ -178,6 +165,40 @@ public class TickEngine(
         {
             await redisService.SaveAccountAsync(account);
             await postgresService.UpsertAccountAsync(account);
+        }
+    }
+
+    private async Task CheckExpiredCeremoniesAsync(CancellationToken ct)
+    {
+        try
+        {
+            var db = redisService.GetDatabase();
+            var endpoint = db.Multiplexer.GetEndPoints().FirstOrDefault();
+            if (endpoint == null) return;
+            
+            var server = db.Multiplexer.GetServer(endpoint);
+            foreach (var key in server.Keys(pattern: "ceremony:timer:*"))
+            {
+                var val = await db.StringGetAsync(key);
+                if (val.IsNullOrEmpty) continue;
+
+                if (long.TryParse(val.ToString(), out var expiryTicks))
+                {
+                    if (DateTime.UtcNow.Ticks >= expiryTicks)
+                    {
+                        var parts = key.ToString().Split(':');
+                        if (parts.Length == 4 && long.TryParse(parts[2], out var chatId) && int.TryParse(parts[3], out var topicId))
+                        {
+                            await db.KeyDeleteAsync(key);
+                            _ = Task.Run(() => ceremonyService.ProcessCeremonyAsync(chatId, topicId == 0 ? null : topicId, ct));
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error checking expired ceremonies.");
         }
     }
 

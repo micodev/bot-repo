@@ -20,26 +20,17 @@ public class CeremonyService
         _aiService = aiService;
     }
 
-    public async Task ProcessCeremoniesAsync(DateTime hourFinished, CancellationToken ct = default)
+    public async Task ProcessCeremonyAsync(long chatId, int? topicId, CancellationToken ct = default)
     {
-        var hourKey = hourFinished.ToString("yyyyMMddHH");
         var db = _redisService.GetDatabase();
-        var chatsKey = $"ceremony:chats:{hourKey}";
+        var tributesKey = $"ceremony:tributes:{chatId}:{topicId ?? 0}";
+        var timerKey = $"ceremony:timer:{chatId}:{topicId ?? 0}";
 
-        var chats = await db.SetMembersAsync(chatsKey);
-        if (chats == null || chats.Length == 0) return;
+        var topTributers = await db.SortedSetRangeByRankWithScoresAsync(tributesKey, 0, -1, Order.Descending);
+        if (topTributers == null || topTributers.Length == 0) return;
 
-        foreach (var chatVal in chats)
+        try
         {
-            var parts = chatVal.ToString().Split(':');
-            if (parts.Length != 2 || !long.TryParse(parts[0], out var chatId) || !int.TryParse(parts[1], out var topicId)) continue;
-
-            var tributesKey = $"ceremony:tributes:{chatId}:{topicId}:{hourKey}";
-            var topTributers = await db.SortedSetRangeByRankWithScoresAsync(tributesKey, 0, -1, Order.Descending);
-            if (topTributers == null || topTributers.Length == 0) continue;
-
-            try
-            {
                 // Message 1 (Warning)
                 var silenceMsg = await _aiService.FlavorResponseAsync(
                     "The Royal Ceremony is starting.",
@@ -89,7 +80,7 @@ public class CeremonyService
                 sb.AppendLine("👑 **CEREMONY FOR THE QUEEN** 👑\n");
                 sb.AppendLine(conclusionMsg + "\n");
 
-                sb.AppendLine("📜 **Tributes this Hour:**");
+                sb.AppendLine("📜 **Tributes for this Ceremony:**");
                 foreach (var entry in topTributers)
                 {
                     var amountFormatted = ((long)entry.Score).ToString("N0");
@@ -105,13 +96,11 @@ public class CeremonyService
 
                 // Clean up Redis keys
                 await db.KeyDeleteAsync(tributesKey);
+                await db.KeyDeleteAsync(timerKey);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to broadcast ceremony to chat {ChatId}", chatId);
             }
-        }
-
-        await db.KeyDeleteAsync(chatsKey);
     }
 }

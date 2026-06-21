@@ -74,6 +74,7 @@ public class EconomyOptions
     public long CeremonyQueenId { get; set; } = 622676944;
     public long CeremonyPreparationFee { get; set; } = 25_000;
     public long CeremonyMinimumTribute { get; set; } = 100_000;
+    public double CeremonyDurationMinutes { get; set; } = 15;
 
     // ── Rent & Assets ────────────────────────────────────────────────────────
     public double RentYieldPerMinute { get; set; } = 0.00005;

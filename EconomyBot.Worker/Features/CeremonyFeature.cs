@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace EconomyBot.Worker.Features;
 
-public class CeremonyFeature(RedisService redisService, IOptions<EconomyOptions> economyOptions, NotificationQueue notificationQueue) : FeatureBase(notificationQueue), ICommandFeature
+public class CeremonyFeature(RedisService redisService, IOptions<EconomyOptions> economyOptions, NotificationQueue notificationQueue, RicoAiService aiService) : FeatureBase(notificationQueue), ICommandFeature
 {
     private readonly EconomyOptions _opts = economyOptions.Value;
 
@@ -114,16 +114,9 @@ public class CeremonyFeature(RedisService redisService, IOptions<EconomyOptions>
 
         var targetAccount = await redisService.GetAccountAsync(targetId) ?? new UserAccount { UserId = targetId };
 
-        var hourKey = DateTime.UtcNow.ToString("yyyyMMddHH");
-        var tributesKey = $"ceremony:tributes:{cmd.ChatId}:{cmd.TopicId ?? 0}:{hourKey}";
+        var tributesKey = $"ceremony:tributes:{cmd.ChatId}:{cmd.TopicId ?? 0}";
 
         var db = redisService.GetDatabase();
-        var existingTribute = await db.SortedSetScoreAsync(tributesKey, cmd.UserName);
-        if (existingTribute.HasValue)
-        {
-            await Reply(cmd, "❌ You have already submitted a tribute for the upcoming ceremony! Please wait until the next hour.", dashMarkup);
-            return false;
-        }
 
         if (tributeAmount + preparationFee > account.Balance)
         {
@@ -148,16 +141,31 @@ public class CeremonyFeature(RedisService redisService, IOptions<EconomyOptions>
 
         await redisService.SaveAccountAsync(targetAccount);
 
-        var chatsKey = $"ceremony:chats:{hourKey}";
+        var timerKey = $"ceremony:timer:{cmd.ChatId}:{cmd.TopicId ?? 0}";
+        var timerExists = await db.KeyExistsAsync(timerKey);
+
+        long expiryTicks = DateTime.UtcNow.AddMinutes(_opts.CeremonyDurationMinutes).Ticks;
+        await db.StringSetAsync(timerKey, expiryTicks);
 
         await db.SortedSetIncrementAsync(tributesKey, cmd.UserName, tributeAmount);
-        await db.SetAddAsync(chatsKey, $"{cmd.ChatId}:{cmd.TopicId ?? 0}");
         await db.KeyExpireAsync(tributesKey, TimeSpan.FromHours(24));
-        await db.KeyExpireAsync(chatsKey, TimeSpan.FromHours(24));
+        await db.KeyExpireAsync(timerKey, TimeSpan.FromHours(24));
 
-        var msg = $"👑 Your tribute of **${FormatNumber(tributeAmount)}** has been accepted!\nThe Royal Ceremony will commence at the top of the hour. Please wait quietly.";
+        var defaultMsg = $"👑 Your tribute of **${FormatNumber(tributeAmount)}** has been accepted!\nThe Royal Ceremony will commence in {_opts.CeremonyDurationMinutes} minutes! If anyone else donates, the timer will reset.";
+
+        var personality = timerExists 
+            ? $"You are an EMPRESS GODDESS. A peasant just added another tribute for your upcoming ceremony. Arrogantly accept it and demand that the ceremony timer is restarted from scratch to make them wait longer! Tell them the ceremony is delayed by another {_opts.CeremonyDurationMinutes} minutes."
+            : $"You are an EMPRESS GODDESS. A peasant just offered you a tribute for your upcoming ceremony. Accept it arrogantly. Remind them that the ceremony begins in {_opts.CeremonyDurationMinutes} minutes, but if any other peasant donates, the timer resets and they must wait longer! Be dramatic and royal.";
+
+        var aiMsg = await aiService.FlavorResponseAsync(
+            $"User {cmd.UserName} donated {tributeAmount}.",
+            new { Tribute = tributeAmount, TimerMinutes = _opts.CeremonyDurationMinutes, TimerReset = timerExists },
+            defaultMsg,
+            maxTokens: 150,
+            overridePersonality: personality
+        );
         
-        await Reply(cmd, msg, dashMarkup);
+        await Reply(cmd, aiMsg, dashMarkup);
         return true;
     }
 }
