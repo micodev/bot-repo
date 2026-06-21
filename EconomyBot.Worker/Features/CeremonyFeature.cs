@@ -37,7 +37,7 @@ public class CeremonyFeature(RedisService redisService, IOptions<EconomyOptions>
         // Only the specific Queen ID is allowed.
         if (targetId != _opts.CeremonyQueenId)
         {
-            await Reply(cmd, "❌ Royal Ceremonies can only be held for the Queen!", dashMarkup);
+            await Reply(cmd, "❌ Royal Ceremonies can only be held for the Empress!", dashMarkup);
             return false;
         }
 
@@ -91,7 +91,7 @@ public class CeremonyFeature(RedisService redisService, IOptions<EconomyOptions>
 
         if (!amountToTransfer.HasValue && !isAll && !isHalf)
         {
-            await Reply(cmd, $"❌ Usage: `/ecoceremony <amount>` (reply) or `/ecoceremony @Queen <amount>`\nNote: Requires ${FormatNumber(preparationFee)} preparation fee and ${FormatNumber(minimumTribute)} minimum tribute.", dashMarkup);
+            await Reply(cmd, $"❌ Usage: `/ecoceremony <amount>` (reply) or `/ecoceremony @Empress <amount>`\nNote: Requires ${FormatNumber(preparationFee)} preparation fee and ${FormatNumber(minimumTribute)} minimum tribute.", dashMarkup);
             return false;
         }
 
@@ -108,7 +108,7 @@ public class CeremonyFeature(RedisService redisService, IOptions<EconomyOptions>
 
         if (tributeAmount < minimumTribute)
         {
-            await Reply(cmd, $"❌ A Royal Ceremony requires a minimum tribute of **${FormatNumber(minimumTribute)}**! Anything less is an insult to the Queen.", dashMarkup);
+            await Reply(cmd, $"❌ A Royal Ceremony requires a minimum tribute of **${FormatNumber(minimumTribute)}**! Anything less is an insult to the Empress.", dashMarkup);
             return false;
         }
 
@@ -154,8 +154,8 @@ public class CeremonyFeature(RedisService redisService, IOptions<EconomyOptions>
         var defaultMsg = $"👑 Your tribute of **${FormatNumber(tributeAmount)}** has been accepted!\nThe Royal Ceremony will commence in {_opts.CeremonyDurationMinutes} minutes! If anyone else donates, the timer will reset.";
 
         var personality = timerExists 
-            ? $"You are a loyal royal soldier serving the EMPRESS GODDESS. A peasant just added another tribute for the upcoming ceremony honoring the Goddess. Arrogantly accept it on her behalf and demand that the ceremony timer is restarted from scratch to make them wait longer! Tell them the ceremony is delayed by another {_opts.CeremonyDurationMinutes} minutes."
-            : $"You are a loyal royal soldier serving the EMPRESS GODDESS. A peasant just offered a tribute for the upcoming ceremony honoring the Goddess. Accept it arrogantly on her behalf. Remind them that the ceremony begins in {_opts.CeremonyDurationMinutes} minutes, but if any other peasant donates, the timer resets and they must wait longer! Be dramatic and royal.";
+            ? $"You are a loyal royal soldier serving the Empress. A peasant just added another tribute for the upcoming ceremony honoring the Empress. Arrogantly accept it on her behalf and demand that the ceremony timer is restarted from scratch to make them wait longer! Tell them the ceremony is delayed by another {_opts.CeremonyDurationMinutes} minutes. Use plenty of emojis."
+            : $"You are a loyal royal soldier serving the Empress. A peasant just offered a tribute for the upcoming ceremony honoring the Empress. Accept it arrogantly on her behalf. Remind them that the ceremony begins in {_opts.CeremonyDurationMinutes} minutes, but if any other peasant donates, the timer resets and they must wait longer! Be dramatic and royal. Use plenty of emojis.";
 
         var flavorText = await aiService.FlavorResponseAsync(
             $"User {cmd.UserName} donated.",
