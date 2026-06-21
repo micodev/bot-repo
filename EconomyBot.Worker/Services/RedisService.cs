@@ -13,6 +13,7 @@ public class RedisService
     private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
     {
         PropertyNameCaseInsensitive = true,
+        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
         Converters = { new EconomyBot.Worker.Core.FlexibleNullableDateTimeConverter() }
     };
 
