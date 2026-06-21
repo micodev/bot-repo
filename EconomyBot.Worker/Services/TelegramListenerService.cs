@@ -175,6 +175,10 @@ public class TelegramListenerService(
                     {
                         replyTo = new InputReplyToMessage { reply_to_msg_id = notif.ReplyToMsgId };
                     }
+                    else if (notif.TopicId.HasValue && notif.TopicId.Value > 0)
+                    {
+                        replyTo = new InputReplyToMessage { reply_to_msg_id = notif.TopicId.Value };
+                    }
 
                     string textToSend = notif.Message;
                     var entities = _client!.MarkdownToEntities(ref textToSend);
@@ -411,7 +415,7 @@ public class TelegramListenerService(
                         if (cmdName == "/gamelogs" && topicId.HasValue)
                         {
                             var currentlyEnabled = await redisService.IsGameLogsEnabledAsync(msg.peer_id.ID);
-                            await redisService.SetGameLogsEnabledAsync(msg.peer_id.ID, !currentlyEnabled);
+                            await redisService.SetGameLogsEnabledAsync(msg.peer_id.ID, (int)topicId.Value, !currentlyEnabled);
                             await _client.Messages_SendMessage(
                                 peer: peer!,
                                 message: !currentlyEnabled ? "✅ Game logs **enabled** for this topic." : "❌ Game logs **disabled**.",

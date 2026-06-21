@@ -79,6 +79,7 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
             JackpotBox = jackpotBox,
             MessageId = cmd.IsCallback ? 0 : cmd.ReplyToMsgId,
             TopicId = cmd.TopicId,
+            ChatId = cmd.ChatId,
             CreatedAtUtc = DateTime.UtcNow
         };
 
@@ -153,6 +154,7 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
                 ChatId = cmd.ChatId,
                 TopicId = cmd.TopicId,
                 Peer = cmd.Peer,
+                ReplyToMsgId = l.MessageId,
                 Message = fallbackReply
             };
             await _notificationQueue.EnqueueAsync(notification);
@@ -471,6 +473,7 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
             ChatId = cmd.ChatId,
             TopicId = cmd.TopicId,
             Peer = cmd.Peer,
+            ReplyToMsgId = lobby.MessageId,
             Message = sb.ToString()
         };
         await _notificationQueue.EnqueueAsync(notification);

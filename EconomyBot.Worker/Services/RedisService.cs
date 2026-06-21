@@ -158,10 +158,10 @@ public class RedisService
         return null;
     }
 
-    public async Task SetGameLogsEnabledAsync(long chatId, bool enabled)
+    public async Task SetGameLogsEnabledAsync(long chatId, int topicId, bool enabled)
     {
         if (enabled)
-            await _db.StringSetAsync($"eco:game_logs_enabled:{chatId}", "1");
+            await _db.StringSetAsync($"eco:game_logs_enabled:{chatId}", topicId);
         else
             await _db.KeyDeleteAsync($"eco:game_logs_enabled:{chatId}");
     }
@@ -182,10 +182,10 @@ public class RedisService
             var parts = keyStr.Split(':');
             if (parts.Length == 3 && long.TryParse(parts[2], out long chatId))
             {
-                var topicId = await GetLockedTopicAsync(chatId);
-                if (topicId.HasValue)
+                var val = await _db.StringGetAsync(key);
+                if (val.HasValue && int.TryParse(val.ToString(), out int topicId))
                 {
-                    targets.Add((chatId, topicId.Value));
+                    targets.Add((chatId, topicId));
                 }
             }
         }

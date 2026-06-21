@@ -11,5 +11,6 @@ public class DareLobby
     public int? ChallengerChoice { get; set; }
     public int MessageId { get; set; }
     public int? TopicId { get; set; }
+    public long ChatId { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 }
