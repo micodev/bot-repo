@@ -12,7 +12,7 @@ public class RicoAiService
     private readonly string _groqApiKey = "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";
 
     // Gemini configurations
-    private readonly string _geminiApiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? "AQ.Ab8RN6IFP9fWnGtHuX83OkU2DoKnYLtThcE0rClA68GLqluCEA";
+    private readonly string _geminiApiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? "AQ.Ab8RN6JdNz51M8xqOl5hqAQAr1RlssiOEXmY76s-JZOfBbFiLw";
     private readonly string _geminiApiUrl = Environment.GetEnvironmentVariable("GEMINI_API_URL") ?? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
     private readonly string[] _geminiModels = { "gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.5-flash" };
 
