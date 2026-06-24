@@ -10,7 +10,7 @@ namespace EconomyBot.Worker.Services;
 public class RicoAiService
 {
     private readonly string _groqApiKey = "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";
-    
+
     // Gemini configurations
     private readonly string _geminiApiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? "AQ.Ab8RN6IFP9fWnGtHuX83OkU2DoKnYLtThcE0rClA68GLqluCEA";
     private readonly string _geminiApiUrl = Environment.GetEnvironmentVariable("GEMINI_API_URL") ?? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
@@ -33,7 +33,7 @@ public class RicoAiService
         Console.WriteLine($"result: {result}");
         Console.WriteLine($"fallbackResponse: {fallbackResponse}");
         Console.WriteLine($"maxTokens: {maxTokens}");
-        
+
         var compactData = JsonSerializer.Serialize(result);
         var systemContent = overridePersonality ?? _botPersonality;
         if (!string.IsNullOrEmpty(promptAddendum))
@@ -140,7 +140,14 @@ public class RicoAiService
         var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
 
         using var requestMessage = new HttpRequestMessage(HttpMethod.Post, apiUrl);
-        requestMessage.Headers.Add("Authorization", $"Bearer {apiKey}");
+        if (providerName == "Gemini")
+        {
+            requestMessage.Headers.Add("x-goog-api-key", apiKey);
+        }
+        else
+        {
+            requestMessage.Headers.Add("Authorization", $"Bearer {apiKey}");
+        }
         requestMessage.Content = content;
 
         var response = await _client.SendAsync(requestMessage);
@@ -193,7 +200,7 @@ public class RicoAiService
         }
 
         _logger.LogWarning("All Gemini models failed or no API key found. Falling back to Groq (llama-3.1-8b-instant)...");
-        
+
         try
         {
             var groqResponse = await SendChatRequestAsync("https://api.groq.com/openai/v1/chat/completions", _groqApiKey, "llama-3.1-8b-instant", "Groq", systemContent, userContent, maxTokens, jsonFormat);
@@ -240,7 +247,7 @@ public class RicoAiService
                 _logger.LogWarning($"GetFoodItemDetails JSON parse exception ({ex.Message}).");
             }
         }
-        
+
         return new FoodItemDetails { Available = false, Reason = "The kitchen is currently on fire." };
     }
 }
