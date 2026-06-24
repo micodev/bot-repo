@@ -4,26 +4,34 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 
 namespace EconomyBot.Worker.Services;
 
 public class RicoAiService
 {
-    private readonly string _groqApiKey = "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";
-
-    // Gemini configurations
-    private readonly string _geminiApiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? "AQ.Ab8RN6JdNz51M8xqOl5hqAQAr1RlssiOEXmY76s-JZOfBbFiLw";
-    private readonly string _geminiApiUrl = Environment.GetEnvironmentVariable("GEMINI_API_URL") ?? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-    private readonly string[] _geminiModels = { "gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.5-flash" };
+    private readonly string _groqApiKey;
+    private readonly string _geminiApiKey;
+    private readonly string _geminiApiUrl;
+    private readonly string[] _geminiModels;
 
     private readonly string _botPersonality = "You are a chaotic, hilarious, and highly dramatic narrator for an economy bot. CRITICAL: DO NOT talk about yourself, DO NOT act like a bot, and DO NOT act like you own any vault or money. You are strictly a spectator/narrator. Your job is to invent funny, unhinged scenarios describing the users' actions based on the specific event context provided to you. Narrate a dramatic, ridiculous, and entertaining scenario that perfectly fits the feature being used. Keep the vibes entertaining, use internet slang, and roast the users if they fail, get robbed, or make bad decisions. CRITICAL RULE: DO NOT include specific money amounts, numbers, user IDs, or stats in your response (the UI handles displaying exact numbers). Focus entirely on the flavor, roasting, and scenario creation without stating the exact values. Use plenty of emojis.";
     private readonly HttpClient _client;
     private readonly ILogger<RicoAiService> _logger;
 
-    public RicoAiService(ILogger<RicoAiService> logger)
+    public RicoAiService(ILogger<RicoAiService> logger, IConfiguration configuration)
     {
         _logger = logger;
         _client = new HttpClient();
+        
+        _groqApiKey = configuration["AI:GroqApiKey"] ?? "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";
+        _geminiApiKey = configuration["AI:GeminiApiKey"] ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? "";
+        _geminiApiUrl = configuration["AI:GeminiApiUrl"] ?? Environment.GetEnvironmentVariable("GEMINI_API_URL") ?? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+        
+        var modelsSection = configuration.GetSection("AI:GeminiModels").Get<string[]>();
+        _geminiModels = modelsSection != null && modelsSection.Length > 0 
+            ? modelsSection 
+            : new[] { "gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.5-flash" };
     }
 
     public async Task<string> FlavorResponseAsync(string command, object result, string fallbackResponse, int maxTokens = 300, string? promptAddendum = null, string? overridePersonality = null)
