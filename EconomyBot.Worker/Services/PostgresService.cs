@@ -283,7 +283,7 @@ public class PostgresService
 
         var seedQuery = @"
             INSERT INTO Tiers (Level, MaleNames, FemaleNames, MinPercentile) VALUES
-            (0, ARRAY['👑 Emperor', '👑 Supreme', '👑 God-King'], ARRAY['👑 Empress', '👑 Supreme', '👑 Goddess'], 1.0),
+            (0, ARRAY['👑 Emperor', '👑 Supreme', '👑 God-King'], ARRAY['👑 Ghidra', '👑 Supreme', '👑 Goddess'], 1.0),
             (1, ARRAY['💎 King', '💎 Monarch', '💎 Sovereign'], ARRAY['💎 Queen', '💎 Monarch', '💎 Sovereign'], 0.99),
             (2, ARRAY['🥈 Prince', '🥈 Heir', '🥈 Royal'], ARRAY['🥈 Princess', '🥈 Heiress', '🥈 Royal'], 0.95),
             (3, ARRAY['🥉 Duke', '🥉 Archduke', '🥉 Lord'], ARRAY['🥉 Duchess', '🥉 Archduchess', '🥉 Lady'], 0.90),

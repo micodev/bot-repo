@@ -34,12 +34,6 @@ public class StealFeature(RedisService redisService, IOptions<EconomyOptions> ec
             return false;
         }
 
-        if (targetId == 622676944)
-        {
-            await Reply(cmd, "❌ The Queen's pockets are guarded by royal guards! Your steal attempt failed.", dashMarkup);
-            return false;
-        }
-
         if (account.LastStealUtc != null && (DateTime.UtcNow - account.LastStealUtc.Value).TotalHours < _opts.StealCooldownHours)
         {
             var remaining = TimeSpan.FromHours(_opts.StealCooldownHours) - (DateTime.UtcNow - account.LastStealUtc.Value);

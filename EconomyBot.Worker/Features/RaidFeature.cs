@@ -64,12 +64,6 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
             return false;
         }
 
-        if (targetId == 622676944)
-        {
-            await Reply(cmd, "❌ The Queen's fortress is impenetrable! Your raid is immediately crushed.", dashMarkup);
-            return false;
-        }
-
         if (targetAccount.ShieldEndTimeUtc.HasValue && targetAccount.ShieldEndTimeUtc.Value > DateTime.UtcNow)
         {
             var shieldTime = targetAccount.ShieldEndTimeUtc.Value - DateTime.UtcNow;

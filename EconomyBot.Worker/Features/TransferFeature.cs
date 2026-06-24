@@ -96,14 +96,9 @@ public class TransferFeature(RedisService redisService, IOptions<EconomyOptions>
             return false;
         }
 
-        // Royal Ceremony Block
-        if (targetAccount.UserId == 622676944)
-        {
-            await Reply(cmd, "You dare attempt to hand spare change to the Queen like a common merchant?! 🛑 If you wish to offer tribute, you must fund a Royal Ceremony! /ecoceremony", dashMarkup);
-            return false;
-        }
 
-        var taxRate = account.UserId == 622676944 ? 0.0 : _opts.TransferTaxPercentage;
+
+        var taxRate = _opts.TransferTaxPercentage;
         long amount = amountToTransfer ?? 0;
 
         if (isAll)

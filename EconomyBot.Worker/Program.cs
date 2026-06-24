@@ -27,7 +27,6 @@ builder.Services.AddHostedService<TickEngine>();
 builder.Services.AddHostedService<DbSyncService>();
 builder.Services.AddHostedService<TelegramListenerService>();
 builder.Services.AddHostedService<GameLogService>();
-builder.Services.AddSingleton<CeremonyService>();
 
 // Register Command Features
 builder.Services.AddSingleton<ICommandFeature, EconomyBot.Worker.Features.BalanceFeature>();

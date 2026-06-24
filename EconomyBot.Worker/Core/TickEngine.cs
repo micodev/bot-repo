@@ -13,7 +13,6 @@ public class TickEngine(
     JobService jobService,
     MarketService marketService,
     RentService rentService,
-    CeremonyService ceremonyService,
     NotificationQueue notificationQueue,
     IOptions<EconomyOptions> economyOptions,
     IEnumerable<ICommandFeature> features) : BackgroundService
@@ -38,7 +37,6 @@ public class TickEngine(
                 {
                     _lastLobbyCheck = tickStart;
                     await CheckExpiredLobbiesAsync();
-                    await CheckExpiredCeremoniesAsync(stoppingToken);
                 }
 
                 var commandsToProcess = new List<EconomyCommand>();
@@ -165,40 +163,6 @@ public class TickEngine(
         {
             await redisService.SaveAccountAsync(account);
             await postgresService.UpsertAccountAsync(account);
-        }
-    }
-
-    private async Task CheckExpiredCeremoniesAsync(CancellationToken ct)
-    {
-        try
-        {
-            var db = redisService.GetDatabase();
-            var endpoint = db.Multiplexer.GetEndPoints().FirstOrDefault();
-            if (endpoint == null) return;
-            
-            var server = db.Multiplexer.GetServer(endpoint);
-            foreach (var key in server.Keys(pattern: "ceremony:timer:*"))
-            {
-                var val = await db.StringGetAsync(key);
-                if (val.IsNullOrEmpty) continue;
-
-                if (long.TryParse(val.ToString(), out var expiryTicks))
-                {
-                    if (DateTime.UtcNow.Ticks >= expiryTicks)
-                    {
-                        var parts = key.ToString().Split(':');
-                        if (parts.Length == 4 && long.TryParse(parts[2], out var chatId) && int.TryParse(parts[3], out var topicId))
-                        {
-                            await db.KeyDeleteAsync(key);
-                            _ = Task.Run(() => ceremonyService.ProcessCeremonyAsync(chatId, topicId == 0 ? null : topicId, ct));
-                        }
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error checking expired ceremonies.");
         }
     }
 
