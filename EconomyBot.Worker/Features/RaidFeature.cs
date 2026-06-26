@@ -325,7 +325,7 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
             var lobbyStr = await db.StringGetAsync($"raid_lobby:{targetId}");
             if (lobbyStr.IsNullOrEmpty)
             {
-                await Reply(cmd, "❌ This raid lobby has expired or does not exist.");
+                await AnswerCallback(cmd, "❌ This raid lobby has expired or does not exist.");
                 return true;
             }
             lJson = lobbyStr.ToString();
@@ -360,13 +360,13 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
     {
         if (account.UserId == lobby.TargetId)
         {
-            await Reply(cmd, "❌ You cannot join a raid against yourself!");
+            await AnswerCallback(cmd, "❌ You cannot join a raid against yourself!");
             return true;
         }
 
         if (lobby.RaiderIds.Contains(account.UserId))
         {
-            await Reply(cmd, "❌ You are already in this raid!");
+            await AnswerCallback(cmd, "❌ You are already in this raid!");
             return true;
         }
         
@@ -374,7 +374,7 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
         var existingRaidStr = await db.StringGetAsync($"user_in_raid:{account.UserId}");
         if (!existingRaidStr.IsNullOrEmpty && existingRaidStr.ToString() != lobby.TargetId.ToString())
         {
-            await Reply(cmd, "❌ You are currently participating in a different active raid!");
+            await AnswerCallback(cmd, "❌ You are currently participating in a different active raid!");
             return true;
         }
 
@@ -382,13 +382,13 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
         if (account.LastRaidUtc != null && (DateTime.UtcNow - account.LastRaidUtc.Value) < cooldown)
         {
             var remaining = cooldown - (DateTime.UtcNow - account.LastRaidUtc.Value);
-            await Reply(cmd, $"❌ You are on Raid cooldown for {FormatTimeSpan(remaining)}!");
+            await AnswerCallback(cmd, $"❌ You are on Raid cooldown for {FormatTimeSpan(remaining)}!");
             return true;
         }
 
         if (account.Balance <= 0)
         {
-            await Reply(cmd, "❌ You need a balance > 0 to join a raid.");
+            await AnswerCallback(cmd, "❌ You need a balance > 0 to join a raid.");
             return true;
         }
 
@@ -398,7 +398,7 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
 
         if (!await db.StringSetAsync($"user_in_raid:{account.UserId}", lobby.TargetId.ToString(), TimeSpan.FromMinutes(5), StackExchange.Redis.When.NotExists))
         {
-            await Reply(cmd, "❌ You are already in another active raid!");
+            await AnswerCallback(cmd, "❌ You are already in another active raid!");
             account.UpdateRegen(_opts);
             account.Energy = Math.Min(_opts.MaxEnergy - account.EnergyCrashPenalty, account.Energy + _opts.EnergyCostRaid);
             await redisService.SaveAccountAsync(account);
@@ -449,7 +449,7 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
     {
         if (!lobby.RaiderIds.Contains(account.UserId))
         {
-            await Reply(cmd, "❌ You are not in this raid.");
+            await AnswerCallback(cmd, "❌ You are not in this raid.");
             return true;
         }
 

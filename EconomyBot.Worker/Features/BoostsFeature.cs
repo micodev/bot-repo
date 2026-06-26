@@ -147,7 +147,7 @@ public class BoostsFeature(RedisService redisService, MarketService marketServic
             case "luck": return await HandleLuckMenuAsync(cmd, account);
             case "passes": return await HandlePassesMenuAsync(cmd, account);
             default:
-                await Reply(cmd, "❌ Unknown menu category.");
+                await AnswerCallback(cmd, "❌ Unknown menu category.");
                 return true;
         }
     }
@@ -375,7 +375,7 @@ public class BoostsFeature(RedisService redisService, MarketService marketServic
     {
         if (parts.Length != 3 || !int.TryParse(parts[2], out int index) || index < 0 || index >= EnergyRechargeTiers.Length)
         {
-            await Reply(cmd, "❌ Invalid recharge callback.");
+            await AnswerCallback(cmd, "❌ Invalid recharge callback.");
             return true;
         }
 
@@ -383,7 +383,7 @@ public class BoostsFeature(RedisService redisService, MarketService marketServic
         int maxEnergy = _opts.MaxEnergy - account.EnergyCrashPenalty;
         if (account.Energy >= maxEnergy)
         {
-            await Reply(cmd, "❌ **Action Failed:** You can only buy normal energy when your energy is below your maximum capacity!");
+            await AnswerCallback(cmd, "❌ **Action Failed:** You can only buy normal energy when your energy is below your maximum capacity!");
             return true;
         }
 
@@ -417,7 +417,7 @@ public class BoostsFeature(RedisService redisService, MarketService marketServic
     {
         if (parts.Length != 3 || !int.TryParse(parts[2], out int index) || index < 0 || index >= EnergyDrinkTiers.Length)
         {
-            await Reply(cmd, "❌ Invalid energy callback.");
+            await AnswerCallback(cmd, "❌ Invalid energy callback.");
             return true;
         }
 
@@ -425,14 +425,14 @@ public class BoostsFeature(RedisService redisService, MarketService marketServic
         int maxEnergy = _opts.MaxEnergy - account.EnergyCrashPenalty;
         if (account.Energy >= maxEnergy)
         {
-            await Reply(cmd, "❌ **Action Failed:** You can only buy energy drinks when your energy is below your maximum capacity!");
+            await AnswerCallback(cmd, "❌ **Action Failed:** You can only buy energy drinks when your energy is below your maximum capacity!");
             return true;
         }
 
         if (account.EnergyCrashEndTimeUtc.HasValue && account.EnergyCrashEndTimeUtc.Value > DateTime.UtcNow)
         {
             var timeLeft = account.EnergyCrashEndTimeUtc.Value - DateTime.UtcNow;
-            await Reply(cmd, $"❌ You recently drank a powerful energy booster! You must wait until the effects wear off before buying more.\n\n⏳ Time remaining: **{FormatTimeSpan(timeLeft)}**");
+            await AnswerCallback(cmd, $"❌ You recently drank a powerful energy booster! You must wait until the effects wear off before buying more.\n\n⏳ Time remaining: **{FormatTimeSpan(timeLeft)}**");
             return true;
         }
 
@@ -477,7 +477,7 @@ public class BoostsFeature(RedisService redisService, MarketService marketServic
         var luckBoostTiers = GetLuckBoostTiers();
         if (parts.Length != 3 || !int.TryParse(parts[2], out int index) || index < 0 || index >= luckBoostTiers.Length)
         {
-            await Reply(cmd, "❌ Invalid luck callback.");
+            await AnswerCallback(cmd, "❌ Invalid luck callback.");
             return true;
         }
 
@@ -514,7 +514,7 @@ public class BoostsFeature(RedisService redisService, MarketService marketServic
         var specialPasses = GetSpecialPasses();
         if (parts.Length != 3 || !int.TryParse(parts[2], out int index) || index < 0 || index >= specialPasses.Length)
         {
-            await Reply(cmd, "❌ Invalid pass callback.");
+            await AnswerCallback(cmd, "❌ Invalid pass callback.");
             return true;
         }
 

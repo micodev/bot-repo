@@ -518,7 +518,7 @@ public class MarketFeature : FeatureBase, ICommandFeature
         {
             if (account.DoubleSellCharges <= 0)
             {
-                await Reply(cmd, "❌ You don't have any Double Sell Boosters left!", markup: backMarkup);
+                await AnswerCallback(cmd, "❌ You don't have any Double Sell Boosters left!");
                 return false;
             }
             countToSell = 1;
@@ -530,7 +530,7 @@ public class MarketFeature : FeatureBase, ICommandFeature
         int actualCount = Math.Min(countToSell, owned.Count);
         if (actualCount <= 0)
         {
-            await Reply(cmd, "❌ You don't own enough of this asset.", markup: backMarkup);
+            await AnswerCallback(cmd, "❌ You don't own enough of this asset.");
             return false;
         }
 

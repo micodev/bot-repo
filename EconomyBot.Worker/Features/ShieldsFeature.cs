@@ -117,7 +117,7 @@ public class ShieldsFeature(RedisService redisService, MarketService marketServi
 
         if (parts.Length != 3 || !int.TryParse(parts[2], out int index))
         {
-            await Reply(cmd, "❌ Invalid shield callback.");
+            await AnswerCallback(cmd, "❌ Invalid shield callback.");
             return true;
         }
 
@@ -129,7 +129,7 @@ public class ShieldsFeature(RedisService redisService, MarketService marketServi
 
         if (index < 0 || index >= ShieldTiers.Length)
         {
-            await Reply(cmd, "❌ Unknown shield package.");
+            await AnswerCallback(cmd, "❌ Unknown shield package.");
             return true;
         }
 
@@ -140,8 +140,7 @@ public class ShieldsFeature(RedisService redisService, MarketService marketServi
 
         if (account.Balance < price)
         {
-            var dashMarkupRetry = new ReplyInlineMarkup { rows = new[] { GetBackToDashboardRow(cmd.UserId) } };
-            await Reply(cmd, $"❌ Insufficient funds. You need **${FormatNumber(price)}** to buy this shield.", dashMarkupRetry);
+            await AnswerCallback(cmd, $"❌ Insufficient funds. You need **${FormatNumber(price)}** to buy this shield.");
             return true;
         }
 
@@ -156,8 +155,7 @@ public class ShieldsFeature(RedisService redisService, MarketService marketServi
 
         if (requestedEndTime > maxAllowedEndTime)
         {
-            var dashMarkupRetry = new ReplyInlineMarkup { rows = new[] { GetBackToDashboardRow(cmd.UserId) } };
-            await Reply(cmd, "❌ **Shield Limit Reached!**\nYou cannot stack shields beyond 48 hours of total protection time.", dashMarkupRetry);
+            await AnswerCallback(cmd, "❌ **Shield Limit Reached!**\nYou cannot stack shields beyond 48 hours of total protection time.");
             return true;
         }
 

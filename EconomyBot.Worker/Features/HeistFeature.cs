@@ -144,13 +144,13 @@ public class HeistFeature(
 
         if (parts.Length < 4 || parts[0] != "eco_heist_try")
         {
-            await Reply(cmd, "❌ Invalid heist data.", dashMarkup);
+            await AnswerCallback(cmd, "❌ Invalid heist data.");
             return false;
         }
 
         if (!long.TryParse(parts[1], out var triggererId))
         {
-            await Reply(cmd, "❌ Invalid triggerer data.", dashMarkup);
+            await AnswerCallback(cmd, "❌ Invalid triggerer data.");
             return false;
         }
 
@@ -162,13 +162,13 @@ public class HeistFeature(
 
         if (!long.TryParse(parts[2], out var targetId))
         {
-            await Reply(cmd, "❌ Invalid target.", dashMarkup);
+            await AnswerCallback(cmd, "❌ Invalid target.");
             return false;
         }
 
         if (!long.TryParse(parts[3], out var itemId))
         {
-            await Reply(cmd, "❌ Invalid item.", dashMarkup);
+            await AnswerCallback(cmd, "❌ Invalid item.");
             return false;
         }
 
@@ -179,33 +179,33 @@ public class HeistFeature(
             if (DateTime.UtcNow < nextAvailable)
             {
                 var remaining = nextAvailable - DateTime.UtcNow;
-                await Reply(cmd, $"⏳ Heist on cooldown!\n⏰ Try again in {FormatTimeSpan(remaining)}", dashMarkup);
+                await AnswerCallback(cmd, $"⏳ Heist on cooldown!\n⏰ Try again in {FormatTimeSpan(remaining)}");
                 return false;
             }
         }
 
         if (targetId == cmd.UserId)
         {
-            await Reply(cmd, "❌ You can't heist yourself!", dashMarkup);
+            await AnswerCallback(cmd, "❌ You can't heist yourself!");
             return false;
         }
 
         var targetAccount = await redisService.GetAccountAsync(targetId);
         if (targetAccount == null)
         {
-            await Reply(cmd, "❌ Target account not found.", dashMarkup);
+            await AnswerCallback(cmd, "❌ Target account not found.");
             return false;
         }
 
         if (targetAccount.ShieldEndTimeUtc.HasValue && targetAccount.ShieldEndTimeUtc.Value > DateTime.UtcNow)
         {
-            await Reply(cmd, "🛡️ Target has an active protection shield!", dashMarkup);
+            await AnswerCallback(cmd, "🛡️ Target has an active protection shield!");
             return false;
         }
 
         if (account.Inventory.Count >= account.MaxInventoryCapacity)
         {
-            await Reply(cmd, $"❌ Your inventory is full! ({account.Inventory.Count}/{account.MaxInventoryCapacity})\nYou cannot steal any more assets.", dashMarkup);
+            await AnswerCallback(cmd, $"❌ Your inventory is full! ({account.Inventory.Count}/{account.MaxInventoryCapacity})\nYou cannot steal any more assets.");
             return false;
         }
 
@@ -217,7 +217,7 @@ public class HeistFeature(
         var ai = inventory.FirstOrDefault(x => x.Item != null && x.Item.Id == itemId);
         if (ai == null || ai.Item == null)
         {
-            await Reply(cmd, "❌ Item not found in target's inventory. They may have sold it!", dashMarkup);
+            await AnswerCallback(cmd, "❌ Item not found in target's inventory. They may have sold it!");
             // Refund energy
             account.Energy += _opts.EnergyCostHeist;
             await redisService.SaveAccountAsync(account);
@@ -227,7 +227,7 @@ public class HeistFeature(
         var fee = (long)(ai.Item.Price * _opts.HeistFeePercentage);
         if (account.Balance < fee)
         {
-            await Reply(cmd, $"❌ You need ${FormatNumber(fee)} to attempt this heist!", dashMarkup);
+            await AnswerCallback(cmd, $"❌ You need ${FormatNumber(fee)} to attempt this heist!");
             // Refund energy
             account.Energy += _opts.EnergyCostHeist;
             await redisService.SaveAccountAsync(account);

@@ -183,7 +183,7 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
             var val = await db.StringGetAsync($"dare_lobby:{dareId}");
             if (val.IsNullOrEmpty)
             {
-                await Reply(cmd, "❌ This dare has expired or does not exist.");
+                await AnswerCallback(cmd, "❌ This dare has expired or does not exist.");
                 return true;
             }
             lJson = val.ToString();
@@ -223,25 +223,25 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
     {
         if (lobby.InitiatorId == account.UserId)
         {
-            await Reply(cmd, "❌ You cannot accept your own dare!");
+            await AnswerCallback(cmd, "❌ You cannot accept your own dare!");
             return true;
         }
 
         if (lobby.ChallengerId.HasValue)
         {
-            await Reply(cmd, "❌ Someone else has already accepted this dare!");
+            await AnswerCallback(cmd, "❌ Someone else has already accepted this dare!");
             return true;
         }
 
         if (account.Balance < lobby.BetAmount)
         {
-            await Reply(cmd, $"❌ You don't have enough balance! You need {FormatNumber(lobby.BetAmount)}.");
+            await AnswerCallback(cmd, $"❌ You don't have enough balance! You need {FormatNumber(lobby.BetAmount)}.");
             return true;
         }
 
         if (!await db.StringSetAsync($"user_in_dare:{account.UserId}", lobby.DareId, TimeSpan.FromMinutes(5), StackExchange.Redis.When.NotExists))
         {
-            await Reply(cmd, "❌ You are already in another active dare!");
+            await AnswerCallback(cmd, "❌ You are already in another active dare!");
             return true;
         }
 
@@ -303,7 +303,7 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
     {
         if (account.UserId != lobby.InitiatorId && account.UserId != lobby.ChallengerId)
         {
-            await Reply(cmd, "❌ You are not participating in this dare.");
+            await AnswerCallback(cmd, "❌ You are not participating in this dare.");
             return true;
         }
 
@@ -311,7 +311,7 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
         {
             if (lobby.InitiatorChoice.HasValue)
             {
-                await Reply(cmd, "❌ You already picked a box!");
+                await AnswerCallback(cmd, "❌ You already picked a box!");
                 return true;
             }
             lobby.InitiatorChoice = boxIndex;
@@ -320,7 +320,7 @@ public class DareFeature(RedisService redisService, IOptions<EconomyOptions> eco
         {
             if (lobby.ChallengerChoice.HasValue)
             {
-                await Reply(cmd, "❌ You already picked a box!");
+                await AnswerCallback(cmd, "❌ You already picked a box!");
                 return true;
             }
             lobby.ChallengerChoice = boxIndex;
