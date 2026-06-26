@@ -20,7 +20,7 @@ public class EcoAppFeature(NotificationQueue notificationQueue) : FeatureBase(no
                 {
                     buttons = new KeyboardButtonBase[]
                     {
-                        new KeyboardButtonUrl { text = "🌍 Open Eco App", url = "t.me/Ghidra/eco" }
+                        new KeyboardButtonUrl { text = "🌍 Open Eco App", url = "t.me/EcoNoBurgerBot/ECOAPP" }
                     }
                 }
             }
