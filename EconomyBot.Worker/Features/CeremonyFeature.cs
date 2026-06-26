@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace EconomyBot.Worker.Features;
 
-public class CeremonyFeature(RedisService redisService, IOptions<EconomyOptions> economyOptions, NotificationQueue notificationQueue, RicoAiService aiService) : FeatureBase(notificationQueue), ICommandFeature
+public class CeremonyFeature(IOptions<EconomyOptions> economyOptions, NotificationQueue notificationQueue, RicoAiService aiService) : FeatureBase(notificationQueue), ICommandFeature
 {
     private readonly EconomyOptions _opts = economyOptions.Value;
 
