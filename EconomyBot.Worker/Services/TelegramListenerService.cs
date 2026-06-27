@@ -330,6 +330,13 @@ public class TelegramListenerService(
     {
         if (string.IsNullOrWhiteSpace(msg.message)) return;
 
+        // Deduplicate incoming messages to prevent processing the same command multiple times
+        // across multiple replicas or in case of duplicate updates from the client.
+        var msgKey = $"eco:processed_msg:{msg.peer_id.ID}:{msg.id}";
+        var isProcessed = await redisService.GetStringAsync(msgKey);
+        if (!string.IsNullOrEmpty(isProcessed)) return;
+        await redisService.SetStringAsync(msgKey, "1", TimeSpan.FromMinutes(5));
+
         var parts = msg.message.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var cmdName = parts[0].ToLowerInvariant();
 

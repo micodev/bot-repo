@@ -23,14 +23,14 @@ public class RicoAiService
     {
         _logger = logger;
         _client = new HttpClient();
-        
-        _groqApiKey = configuration["AI:GroqApiKey"] ?? "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";
+
+        _groqApiKey = configuration["AI:GroqApiKey"] ?? "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";
         _geminiApiKey = configuration["AI:GeminiApiKey"] ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? "";
         _geminiApiUrl = configuration["AI:GeminiApiUrl"] ?? Environment.GetEnvironmentVariable("GEMINI_API_URL") ?? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-        
+
         var modelsSection = configuration.GetSection("AI:GeminiModels").Get<string[]>();
-        _geminiModels = modelsSection != null && modelsSection.Length > 0 
-            ? modelsSection 
+        _geminiModels = modelsSection != null && modelsSection.Length > 0
+            ? modelsSection
             : new[] { "gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.5-flash" };
     }
 
