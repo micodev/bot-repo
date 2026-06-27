@@ -14,4 +14,5 @@ public class RaidLobby
     public int MessageId { get; set; }
     public long ChatId { get; set; }
     public bool IsBandit { get; set; }
+    public string TargetName { get; set; }
 }

@@ -249,10 +249,11 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
             IsBandit = isBandit
         };
 
-        await SaveLobbyAsync(db, lobby);
-
         var targetUserForLobby = await redisService.GetUserAsync(targetAccount.UserId);
         var targetName = targetUserForLobby?.FirstName ?? "Unknown User";
+        lobby.TargetName = targetName;
+
+        await SaveLobbyAsync(db, lobby);
 
         var title = isBandit ? "🚨 **BANDIT LOBBY OPENED (ALL-IN)** 🚨" : "🚨 **RAID LOBBY OPENED** 🚨";
         
@@ -296,7 +297,7 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
                     ChatId = cmd.ChatId,
                     Peer = cmd.Peer,
                     TopicId = cmd.TopicId,
-                    Args = new[] { targetAccount.UserId.ToString(), targetName }
+                    Args = new[] { targetAccount.UserId.ToString(), msgId.ToString(), targetName }
                 };
                 await _commandQueue.EnqueueAsync(timeoutCmd);
             });
@@ -314,22 +315,32 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
         string lJson = "";
         bool isTimeoutWithJson = false;
 
-        if (action == "eco_raid_timeout" && parts.Length > 3 && parts.Last().StartsWith("{"))
+        if (action == "eco_raid_timeout")
         {
-            lJson = parts.Last();
-            isTimeoutWithJson = true;
+            int messageId = 0;
+            string targetName = "Unknown User";
+            
+            if (parts.Length > 2) int.TryParse(parts[2], out messageId);
+            if (parts.Length > 3) targetName = string.Join(" ", parts.Skip(3));
+
+            var lobbyStrTimeout = await db.StringGetAsync($"raid_lobby:{targetId}");
+            RaidLobby? timeoutLobby = null;
+            if (!lobbyStrTimeout.IsNullOrEmpty)
+            {
+                timeoutLobby = JsonSerializer.Deserialize<RaidLobby>(lobbyStrTimeout.ToString());
+            }
+
+            await HandleLobbyTimeoutAsync(cmd, targetId, targetName, messageId, timeoutLobby, db);
+            return true;
         }
 
-        if (!isTimeoutWithJson)
+        var lobbyStr = await db.StringGetAsync($"raid_lobby:{targetId}");
+        if (lobbyStr.IsNullOrEmpty)
         {
-            var lobbyStr = await db.StringGetAsync($"raid_lobby:{targetId}");
-            if (lobbyStr.IsNullOrEmpty)
-            {
-                await AnswerCallback(cmd, "❌ This raid lobby has expired or does not exist.");
-                return true;
-            }
-            lJson = lobbyStr.ToString();
+            await AnswerCallback(cmd, "❌ This raid lobby has expired or does not exist.");
+            return true;
         }
+        lJson = lobbyStr.ToString();
 
         var lobby = JsonSerializer.Deserialize<RaidLobby>(lJson);
         if (lobby == null) return true;
@@ -342,17 +353,6 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
         {
             return await HandleCancelRaidAsync(cmd, account, lobby, db);
         }
-        else if (action == "eco_raid_timeout")
-        {
-            string targetName = "Unknown User";
-            if (parts.Length > 2)
-            {
-                targetName = isTimeoutWithJson ? string.Join(" ", parts.Skip(2).Take(parts.Length - 3)) : string.Join(" ", parts.Skip(2));
-            }
-            await HandleLobbyTimeoutAsync(cmd, targetId, targetName, lobby, db);
-            return true;
-        }
-
         return true;
     }
 
@@ -415,8 +415,7 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
 
         await SaveLobbyAsync(db, lobby);
         
-        var targetUserForLobby = await redisService.GetUserAsync(lobby.TargetId);
-        var targetName = targetUserForLobby?.FirstName ?? "Unknown User";
+        var targetName = lobby.TargetName ?? "Unknown User";
 
         var title = lobby.IsBandit ? "🚨 **BANDIT LOBBY UPDATE (ALL-IN)** 🚨" : "🚨 **RAID LOBBY UPDATE** 🚨";
         var text = $"{title}\n\n" +
@@ -482,8 +481,7 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
 
         await SaveLobbyAsync(db, lobby);
 
-        var targetUserForLobby = await redisService.GetUserAsync(lobby.TargetId);
-        var targetName = targetUserForLobby?.FirstName ?? "Unknown User";
+        var targetName = lobby.TargetName ?? "Unknown User";
 
         var title = lobby.IsBandit ? "🚨 **BANDIT LOBBY UPDATE (ALL-IN)** 🚨" : "🚨 **RAID LOBBY UPDATE** 🚨";
         var text = $"{title}\n\n" +
@@ -666,23 +664,29 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
         await db.StringSetAsync($"raid_lobby:{lobby.TargetId}", json, TimeSpan.FromMinutes(5));
     }
 
-    private async Task HandleLobbyTimeoutAsync(EconomyCommand cmd, long targetId, string targetName, RaidLobby lobby, StackExchange.Redis.IDatabase db)
+    private async Task HandleLobbyTimeoutAsync(EconomyCommand cmd, long targetId, string targetName, int messageId, RaidLobby? lobby, StackExchange.Redis.IDatabase db)
     {
-        if (lobby == null) return;
-
-        // If the lobby still exists, it means it expired before filling
-        await db.KeyDeleteAsync($"raid_lobby:{targetId}");
-        
-        foreach (var rId in lobby.RaiderIds)
+        if (lobby != null)
         {
-            await db.KeyDeleteAsync($"user_in_raid:{rId}");
-            var rAcc = await redisService.GetAccountAsync(rId);
-            if (rAcc != null)
+            // If the lobby still exists, it means it expired before filling
+            await db.KeyDeleteAsync($"raid_lobby:{targetId}");
+            
+            foreach (var rId in lobby.RaiderIds)
             {
-                rAcc.UpdateRegen(_opts);
-                rAcc.Energy = Math.Min(_opts.MaxEnergy - rAcc.EnergyCrashPenalty, rAcc.Energy + _opts.EnergyCostRaid);
-                await redisService.SaveAccountAsync(rAcc);
+                await db.KeyDeleteAsync($"user_in_raid:{rId}");
+                var rAcc = await redisService.GetAccountAsync(rId);
+                if (rAcc != null)
+                {
+                    rAcc.UpdateRegen(_opts);
+                    rAcc.Energy = Math.Min(_opts.MaxEnergy - rAcc.EnergyCrashPenalty, rAcc.Energy + _opts.EnergyCostRaid);
+                    await redisService.SaveAccountAsync(rAcc);
+                }
             }
+        }
+        else
+        {
+            // Lobby was already resolved (completed or cancelled), so don't send an expiration message.
+            return;
         }
 
         // Try to delete the original lobby message if possible, or send a new one
@@ -690,10 +694,10 @@ public class RaidFeature(RedisService redisService, IOptions<EconomyOptions> eco
         
         var notification = new OutgoingNotification
         {
-            ChatId = lobby.ChatId,
-            TopicId = lobby.TopicId,
+            ChatId = lobby?.ChatId ?? cmd.ChatId,
+            TopicId = lobby?.TopicId ?? cmd.TopicId,
             Peer = cmd.Peer,
-            ReplyToMsgId = lobby.MessageId,
+            ReplyToMsgId = lobby?.MessageId ?? messageId,
             DeleteMessage = true,
             Message = expMsg,
         };

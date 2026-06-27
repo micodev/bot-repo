@@ -291,6 +291,14 @@ public class TelegramListenerService(
                                 }
                             }
                         }
+                        else if (updates is TL.UpdateShortSentMessage sm)
+                        {
+                            if (notif.TriggererUserId.HasValue)
+                            {
+                                await redisService.SetStringAsync($"msg_owner:{peer.ID}:{sm.id}", notif.TriggererUserId.Value.ToString(), TimeSpan.FromDays(2));
+                            }
+                            notif.OnMessageSent?.Invoke(sm.id);
+                        }
                     }
                 }
             }
@@ -533,11 +541,8 @@ public class TelegramListenerService(
 
         long? targetUserId = null;
         // Only resolve target from reply if:
-        // - Not a forum_topic with no top_id (that means reply_to_msg_id is just the topic header, not a user's message)
-        // - i.e., if forum_topic is true, we need reply_to_top_id > 0 to have a real reply
-        if (msg.reply_to is TL.MessageReplyHeader rHeader 
-            && rHeader.reply_to_msg_id > 0 
-            && (!rHeader.flags.HasFlag(TL.MessageReplyHeader.Flags.forum_topic) || rHeader.reply_to_top_id > 0))
+        // Only resolve target from reply if there is a replied message ID
+        if (msg.reply_to is TL.MessageReplyHeader rHeader && rHeader.reply_to_msg_id > 0)
         {
             try
             {
@@ -557,7 +562,9 @@ public class TelegramListenerService(
 
                 if (msgs != null && msgs.Messages.Length > 0 && msgs.Messages[0] is TL.Message repliedMsg)
                 {
-                    targetUserId = repliedMsg.from_id?.ID ?? (repliedMsg.peer_id is TL.PeerUser pu ? pu.ID : 0);
+                    targetUserId = repliedMsg.from_id?.ID 
+                        ?? repliedMsg.fwd_from?.from_id?.ID 
+                        ?? (repliedMsg.peer_id is TL.PeerUser pu ? pu.ID : 0);
                     if (targetUserId == 0) targetUserId = null;
                 }
             }
