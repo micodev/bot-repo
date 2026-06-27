@@ -24,7 +24,7 @@ public class RicoAiService
         _logger = logger;
         _client = new HttpClient();
 
-        _groqApiKey = configuration["AI:GroqApiKey"] ?? "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";
+        _groqApiKey = configuration["AI:GroqApiKey"] ?? "";
         _geminiApiKey = configuration["AI:GeminiApiKey"] ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? "";
         _geminiApiUrl = configuration["AI:GeminiApiUrl"] ?? Environment.GetEnvironmentVariable("GEMINI_API_URL") ?? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
