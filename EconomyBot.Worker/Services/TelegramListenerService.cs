@@ -479,7 +479,7 @@ public class TelegramListenerService(
                                 reply_to: new InputReplyToMessage { reply_to_msg_id = msg.id },
                                 random_id: WTelegram.Helpers.RandomLong());
                         }
-                        else if (cmdName == "/unlocktopic" || cmdName == "/start")
+                        else if (cmdName == "/unlocktopic")
                         {
                             await redisService.DeleteLockedTopicAsync(msg.peer_id.ID);
                             await _client.Messages_SendMessage(
