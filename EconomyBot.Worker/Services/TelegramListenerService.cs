@@ -358,9 +358,9 @@ public class TelegramListenerService(
 
         // Extract TopicID using the same approach as the old repo
         long? topicId = null;
-        if (msg.reply_to is TL.MessageReplyHeader replyHeader)
+        if (msg.reply_to is TL.MessageReplyHeader replyHeader && replyHeader.flags.HasFlag(TL.MessageReplyHeader.Flags.forum_topic))
         {
-            topicId = replyHeader.reply_to_top_id == 0 ? replyHeader.reply_to_msg_id : replyHeader.reply_to_top_id;
+            topicId = replyHeader.reply_to_top_id > 0 ? replyHeader.reply_to_top_id : replyHeader.reply_to_msg_id;
         }
 
         // ── Enforce locked topic ──
@@ -532,7 +532,12 @@ public class TelegramListenerService(
         cmdName = cmdName.Substring(1); // remove '/'
 
         long? targetUserId = null;
-        if (msg.reply_to is TL.MessageReplyHeader rHeader && rHeader.reply_to_msg_id > 0)
+        // Only resolve target from reply if:
+        // - Not a forum_topic with no top_id (that means reply_to_msg_id is just the topic header, not a user's message)
+        // - i.e., if forum_topic is true, we need reply_to_top_id > 0 to have a real reply
+        if (msg.reply_to is TL.MessageReplyHeader rHeader 
+            && rHeader.reply_to_msg_id > 0 
+            && (!rHeader.flags.HasFlag(TL.MessageReplyHeader.Flags.forum_topic) || rHeader.reply_to_top_id > 0))
         {
             try
             {
