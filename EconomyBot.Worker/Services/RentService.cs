@@ -14,11 +14,12 @@ public class RentService(
     /// Calculates how much rent was generated since the last check,
     /// and adds it directly to Balance, updating RentGeneratorFilled if >= 1M.
     /// </summary>
-    public async Task UpdatePendingRentAsync(UserAccount account)
+    public async Task<bool> UpdatePendingRentAsync(UserAccount account)
     {
         var (prices, nextUpdate) = await marketService.GetMarketPricesAsync();
         
         double totalRentGenerated = 0;
+        bool mutated = false;
 
         foreach (var ai in account.Inventory)
         {
@@ -54,6 +55,7 @@ public class RentService(
                 long toAdd = Math.Min(remainingRent, allowedToBalance);
                 account.Balance += toAdd;
                 remainingRent -= toAdd;
+                mutated = true;
             }
 
             if (remainingRent > 0)
@@ -64,16 +66,21 @@ public class RentService(
                     long toAdd = Math.Min(remainingRent, allowedToVault);
                     account.Balance += toAdd;
                     account.RentGeneratorFilled += toAdd;
+                    mutated = true;
                 }
             }
 
             account.LastRentUpdateUtc = DateTime.UtcNow;
+            mutated = true; // Even if rent was 0 but LastRentUpdateUtc changed, wait, if claimableRent > 0 it changed
         }
         else if (!account.LastRentUpdateUtc.HasValue)
         {
             // Just initialize it so it doesn't calculate from beginning of time next time
             account.LastRentUpdateUtc = DateTime.UtcNow;
+            mutated = true;
         }
+        
+        return mutated;
     }
 
     /// <summary>

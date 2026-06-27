@@ -28,6 +28,8 @@ public class TelegramListenerService(
         public bool Warned { get; set; }
     }
     private readonly ConcurrentDictionary<long, FloodState> _floodStates = new();
+    
+    private readonly SemaphoreSlim _updateSemaphore = new(10, 10);
 
     private static readonly Dictionary<long, (string Query, bool Fallback)> _customAnimations = new()
     {
@@ -303,6 +305,7 @@ public class TelegramListenerService(
     {
         _ = Task.Run(async () =>
         {
+            await _updateSemaphore.WaitAsync();
             try
             {
                 switch (update)
@@ -322,6 +325,10 @@ public class TelegramListenerService(
             {
                 logger.LogError(ex, "Error processing update in background task");
             }
+            finally
+            {
+                _updateSemaphore.Release();
+            }
         });
         return Task.CompletedTask;
     }
@@ -333,9 +340,8 @@ public class TelegramListenerService(
         // Deduplicate incoming messages to prevent processing the same command multiple times
         // across multiple replicas or in case of duplicate updates from the client.
         var msgKey = $"eco:processed_msg:{msg.peer_id.ID}:{msg.id}";
-        var isProcessed = await redisService.GetStringAsync(msgKey);
-        if (!string.IsNullOrEmpty(isProcessed)) return;
-        await redisService.SetStringAsync(msgKey, "1", TimeSpan.FromMinutes(5));
+        var acquired = await redisService.AcquireLockAsync(msgKey, TimeSpan.FromMinutes(5));
+        if (!acquired) return;
 
         var parts = msg.message.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var cmdName = parts[0].ToLowerInvariant();
@@ -351,8 +357,11 @@ public class TelegramListenerService(
         if (userId == 0) return;
 
         // Extract TopicID using the same approach as the old repo
-        var replyHeader = msg.reply_to as TL.MessageReplyHeader;
-        long? topicId = replyHeader?.TopicID;
+        long? topicId = null;
+        if (msg.reply_to is TL.MessageReplyHeader replyHeader)
+        {
+            topicId = replyHeader.reply_to_top_id == 0 ? replyHeader.reply_to_msg_id : replyHeader.reply_to_top_id;
+        }
 
         // ── Enforce locked topic ──
         var lockedTopicId = await redisService.GetLockedTopicAsync(msg.peer_id.ID);
@@ -633,6 +642,14 @@ public class TelegramListenerService(
             var dataString = System.Text.Encoding.UTF8.GetString(cbq.data);
             var parts = dataString.Split(':');
             var cmdName = parts[0];
+
+            var cbKey = $"eco:processed_cb:{cbq.user_id}:{cbq.query_id}";
+            var acquired = await redisService.AcquireLockAsync(cbKey, TimeSpan.FromMinutes(5));
+            if (!acquired)
+            {
+                try { await _client!.Messages_SetBotCallbackAnswer(cbq.query_id, cache_time: 0); } catch { }
+                return;
+            }
 
             // Only specific prefixes are public
             var publicPrefixes = new[] { "eco_join_raid", "eco_dare_accept", "eco_dare_box", "eco_help", "eco_cancel_raid", "eco_dare_lobby_start", "eco_dare_lobby_cancel" };

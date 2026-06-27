@@ -92,7 +92,7 @@ public class TickEngine(
 
         // Before processing commands, mathematically calculate rent generated passively.
         // This satisfies the "ticks" updating balance passively as requested!
-        await rentService.UpdatePendingRentAsync(account);
+        bool stateMutated = await rentService.UpdatePendingRentAsync(account);
 
         var db = redisService.GetDatabase();
         if (await db.KeyExistsAsync($"raid_lobby:{userId}"))
@@ -111,8 +111,6 @@ public class TickEngine(
             }
             return;
         }
-
-        bool stateMutated = true; // since rent updates LastRentUpdateUtc/Balance
 
         foreach (var cmd in commands)
         {

@@ -236,6 +236,11 @@ public class RedisService
         return val.HasValue ? val.ToString() : null;
     }
 
+    public async Task<bool> AcquireLockAsync(string key, TimeSpan expiry)
+    {
+        return await _db.StringSetAsync(key, "1", expiry, StackExchange.Redis.When.NotExists);
+    }
+
     // ── Market ──────────────────────────────────────────────────────────────
 
     public async Task<Dictionary<string, MarketCategoryState>> GetMarketPricesAsync()
